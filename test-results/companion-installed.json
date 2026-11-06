@@ -1,0 +1,11 @@
+{
+  "version": "1.1.1",
+  "executable_hash_verified": true,
+  "installed_instances": 1,
+  "background_arguments": [
+    true
+  ],
+  "startup_target_verified": true,
+  "startup_arguments": "--background",
+  "observed_at": "2026-11-06T20:05:19.4029631+05:30"
+}

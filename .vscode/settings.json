@@ -1,3 +1,9 @@
 {
-    "cmake.sourceDirectory": "D:/Desktop/Aryan jr. science/esp32-displayt/src"
+    "cmake.sourceDirectory": "${workspaceFolder}/firmware",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+    "files.exclude": {
+        "**/__pycache__": true,
+        ".pytest_cache": true,
+        ".cache": true
+    }
 }

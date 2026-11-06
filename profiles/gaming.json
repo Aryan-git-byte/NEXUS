@@ -1,0 +1,56 @@
+{
+  "id": "gaming",
+  "name": "Gaming",
+  "category": "gaming",
+  "revision": 1,
+  "buttons": [
+    {
+      "id": "screenshot",
+      "label": "Screenshot",
+      "icon": "camera",
+      "action": {
+        "type": "screenshot"
+      }
+    },
+    {
+      "id": "play",
+      "label": "Play / pause",
+      "icon": "play",
+      "action": {
+        "type": "media_play_pause"
+      }
+    },
+    {
+      "id": "mute",
+      "label": "Mute",
+      "icon": "mute",
+      "action": {
+        "type": "volume_mute"
+      }
+    },
+    {
+      "id": "volume_up",
+      "label": "Volume up",
+      "icon": "volume_up",
+      "action": {
+        "type": "volume_up"
+      }
+    },
+    {
+      "id": "volume_down",
+      "label": "Volume down",
+      "icon": "volume_down",
+      "action": {
+        "type": "volume_down"
+      }
+    },
+    {
+      "id": "desktop",
+      "label": "Desktop",
+      "icon": "desktop",
+      "action": {
+        "type": "show_desktop"
+      }
+    }
+  ]
+}

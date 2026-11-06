@@ -1,0 +1,79 @@
+{
+  "id": "productivity",
+  "name": "Productivity",
+  "category": "productivity",
+  "revision": 1,
+  "buttons": [
+    {
+      "id": "copy",
+      "label": "Copy",
+      "icon": "copy",
+      "action": {
+        "type": "keyboard_shortcut",
+        "keys": "ctrl+c"
+      }
+    },
+    {
+      "id": "paste",
+      "label": "Paste",
+      "icon": "paste",
+      "action": {
+        "type": "keyboard_shortcut",
+        "keys": "ctrl+v"
+      }
+    },
+    {
+      "id": "cut",
+      "label": "Cut",
+      "icon": "cut",
+      "action": {
+        "type": "keyboard_shortcut",
+        "keys": "ctrl+x"
+      }
+    },
+    {
+      "id": "undo",
+      "label": "Undo",
+      "icon": "undo",
+      "action": {
+        "type": "keyboard_shortcut",
+        "keys": "ctrl+z"
+      }
+    },
+    {
+      "id": "save",
+      "label": "Save",
+      "icon": "save",
+      "action": {
+        "type": "keyboard_shortcut",
+        "keys": "ctrl+s"
+      }
+    },
+    {
+      "id": "explorer",
+      "label": "Files",
+      "icon": "folder",
+      "action": {
+        "type": "launch_app",
+        "target": "explorer",
+        "args": []
+      }
+    },
+    {
+      "id": "desktop",
+      "label": "Desktop",
+      "icon": "desktop",
+      "action": {
+        "type": "show_desktop"
+      }
+    },
+    {
+      "id": "lock",
+      "label": "Lock",
+      "icon": "lock",
+      "action": {
+        "type": "lock_windows"
+      }
+    }
+  ]
+}

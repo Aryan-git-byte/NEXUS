@@ -1,0 +1,39 @@
+cmake_minimum_required(VERSION 3.24)
+project(nexus_ui_preview LANGUAGES C CXX)
+if(CMAKE_C_COMPILER MATCHES "zig(.exe)?$")
+    set(CMAKE_ASM_COMPILER_ARG1 "cc" CACHE STRING "" FORCE)
+    set(CMAKE_AR "${CMAKE_C_COMPILER}")
+    set(CMAKE_C_ARCHIVE_CREATE "<CMAKE_AR> ar qc <TARGET> <LINK_FLAGS> <OBJECTS>")
+    set(CMAKE_C_ARCHIVE_FINISH "<CMAKE_AR> ranlib <TARGET>")
+    set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> ar qc <TARGET> <LINK_FLAGS> <OBJECTS>")
+    set(CMAKE_CXX_ARCHIVE_FINISH "<CMAKE_AR> ranlib <TARGET>")
+endif()
+get_filename_component(NEXUS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+if(NOT IDF_PATH)
+    set(IDF_PATH "$ENV{IDF_PATH}")
+endif()
+if(NOT EXISTS "${IDF_PATH}/components/json/cJSON/cJSON.c")
+    message(FATAL_ERROR "Pass -DIDF_PATH pointing to the installed ESP-IDF source")
+endif()
+set(LV_CONF_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lv_conf.h" CACHE STRING "" FORCE)
+set(LV_CONF_BUILD_DISABLE_THORVG_INTERNAL ON CACHE BOOL "" FORCE)
+set(LV_CONF_BUILD_DISABLE_EXAMPLES ON CACHE BOOL "" FORCE)
+set(LV_CONF_BUILD_DISABLE_DEMOS ON CACHE BOOL "" FORCE)
+add_subdirectory("${NEXUS_ROOT}/firmware/managed_components/lvgl__lvgl" lvgl)
+set(NEXUS_MAIN "${NEXUS_ROOT}/firmware/main")
+add_executable(nexus_ui_preview preview.cpp hardware_fixtures.cpp
+    "${NEXUS_MAIN}/app_model.cpp" "${NEXUS_MAIN}/assets/icon_data.cpp"
+    "${NEXUS_MAIN}/ui/ui_manager.cpp" "${NEXUS_MAIN}/ui/ui_styles.cpp"
+    "${NEXUS_MAIN}/ui/ui_icon.cpp" "${NEXUS_MAIN}/ui/ui_home.cpp"
+    "${NEXUS_MAIN}/ui/ui_media.cpp" "${NEXUS_MAIN}/ui/ui_monitor.cpp"
+    "${NEXUS_MAIN}/ui/ui_settings.cpp" "${NEXUS_MAIN}/ui/ui_screensaver.cpp"
+    "${NEXUS_MAIN}/assets/clock_fonts.c"
+    "${IDF_PATH}/components/json/cJSON/cJSON.c"
+    "${IDF_PATH}/components/mbedtls/mbedtls/library/base64.c"
+    "${IDF_PATH}/components/mbedtls/mbedtls/library/constant_time.c")
+target_include_directories(nexus_ui_preview PRIVATE include "${NEXUS_MAIN}"
+    "${IDF_PATH}/components/json/cJSON"
+    "${IDF_PATH}/components/mbedtls/mbedtls/include")
+target_compile_definitions(nexus_ui_preview PRIVATE MBEDTLS_CONFIG_FILE="nexus_mbedtls.h")
+target_compile_features(nexus_ui_preview PRIVATE cxx_std_17)
+target_link_libraries(nexus_ui_preview PRIVATE lvgl)

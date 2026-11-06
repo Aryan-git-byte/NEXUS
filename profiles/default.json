@@ -1,0 +1,79 @@
+{
+  "id": "default",
+  "name": "Default",
+  "category": "default",
+  "revision": 1,
+  "buttons": [
+    {
+      "id": "vscode",
+      "label": "VS Code",
+      "icon": "code",
+      "action": {
+        "type": "launch_app",
+        "target": "code",
+        "args": []
+      }
+    },
+    {
+      "id": "terminal",
+      "label": "Terminal",
+      "icon": "terminal",
+      "action": {
+        "type": "launch_app",
+        "target": "terminal",
+        "args": []
+      }
+    },
+    {
+      "id": "browser",
+      "label": "Browser",
+      "icon": "browser",
+      "action": {
+        "type": "open_url",
+        "url": "https://github.com"
+      }
+    },
+    {
+      "id": "screenshot",
+      "label": "Screenshot",
+      "icon": "camera",
+      "action": {
+        "type": "screenshot"
+      }
+    },
+    {
+      "id": "copy",
+      "label": "Copy",
+      "icon": "copy",
+      "action": {
+        "type": "keyboard_shortcut",
+        "keys": "ctrl+c"
+      }
+    },
+    {
+      "id": "paste",
+      "label": "Paste",
+      "icon": "paste",
+      "action": {
+        "type": "keyboard_shortcut",
+        "keys": "ctrl+v"
+      }
+    },
+    {
+      "id": "desktop",
+      "label": "Desktop",
+      "icon": "desktop",
+      "action": {
+        "type": "show_desktop"
+      }
+    },
+    {
+      "id": "lock",
+      "label": "Lock",
+      "icon": "lock",
+      "action": {
+        "type": "lock_windows"
+      }
+    }
+  ]
+}

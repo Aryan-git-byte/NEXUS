@@ -1,0 +1,10 @@
+{
+  "firmware": "1.1.1",
+  "flashed": true,
+  "hash_verified": true,
+  "images": 3,
+  "port": "COM17",
+  "application_bytes": 950576,
+  "application_sha256": "c4ad59187e7a1ae166778058a404013a8173619b57711e793af2b71e92be6bed",
+  "physical_boot_reported": true
+}

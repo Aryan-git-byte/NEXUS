@@ -1,0 +1,44 @@
+{
+  "id": "custom",
+  "name": "Custom",
+  "category": "custom",
+  "revision": 1,
+  "buttons": [
+    {
+      "id": "select_all",
+      "label": "Select all",
+      "icon": "text",
+      "action": {
+        "type": "keyboard_shortcut",
+        "keys": "ctrl+a"
+      }
+    },
+    {
+      "id": "copy",
+      "label": "Copy",
+      "icon": "copy",
+      "action": {
+        "type": "keyboard_shortcut",
+        "keys": "ctrl+c"
+      }
+    },
+    {
+      "id": "paste",
+      "label": "Paste",
+      "icon": "paste",
+      "action": {
+        "type": "keyboard_shortcut",
+        "keys": "ctrl+v"
+      }
+    },
+    {
+      "id": "save",
+      "label": "Save",
+      "icon": "save",
+      "action": {
+        "type": "keyboard_shortcut",
+        "keys": "ctrl+s"
+      }
+    }
+  ]
+}

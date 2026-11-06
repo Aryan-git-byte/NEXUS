@@ -1,0 +1,56 @@
+{
+  "id": "media",
+  "name": "Media",
+  "category": "media",
+  "revision": 1,
+  "buttons": [
+    {
+      "id": "play",
+      "label": "Play / pause",
+      "icon": "play",
+      "action": {
+        "type": "media_play_pause"
+      }
+    },
+    {
+      "id": "previous",
+      "label": "Previous",
+      "icon": "previous",
+      "action": {
+        "type": "media_previous"
+      }
+    },
+    {
+      "id": "next",
+      "label": "Next",
+      "icon": "next",
+      "action": {
+        "type": "media_next"
+      }
+    },
+    {
+      "id": "volume_down",
+      "label": "Volume down",
+      "icon": "volume_down",
+      "action": {
+        "type": "volume_down"
+      }
+    },
+    {
+      "id": "volume_up",
+      "label": "Volume up",
+      "icon": "volume_up",
+      "action": {
+        "type": "volume_up"
+      }
+    },
+    {
+      "id": "mute",
+      "label": "Mute",
+      "icon": "mute",
+      "action": {
+        "type": "volume_mute"
+      }
+    }
+  ]
+}

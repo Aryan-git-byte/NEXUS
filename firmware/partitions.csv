@@ -1,0 +1,5 @@
+# Name, Type, SubType, Offset, Size, Flags
+nvs, data, nvs, 0x9000, 0x50000,
+phy_init, data, phy, 0x59000, 0x1000,
+factory, app, factory, 0x60000, 0x400000,
+icon_store, data, nvs, 0x460000, 0x200000,

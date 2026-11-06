@@ -1,0 +1,42 @@
+[
+  {
+    "file": "src/main.cpp",
+    "sha256": "99EBFFFFDAC0EB4C79A7334FAE2AE88DC4CB90D748B1C0BE1D9D7A33338EE287",
+    "bytes": 18789
+  },
+  {
+    "file": "src/hid_ble.c",
+    "sha256": "C4EB980A02692345046C7D0504941196B10A8F207A343AF5A0260E284EE4698A",
+    "bytes": 8187
+  },
+  {
+    "file": "src/hid_ble.h",
+    "sha256": "9168651795E3F3FD73F7C8B9A43C97E0E83FCED1027516C2D877A1D454431E4A",
+    "bytes": 325
+  },
+  {
+    "file": "src/CMakeLists.txt",
+    "sha256": "D730A24293C592A83568F99371A3596EF239882FB4B123FB0D6AEDE0A5ABBEBA",
+    "bytes": 132
+  },
+  {
+    "file": "CMakeLists.txt",
+    "sha256": "D1DB2730DD04D593D5ACD99B294944346996B1D821EF7A36BDC56235F909BC5D",
+    "bytes": 110
+  },
+  {
+    "file": "platformio.ini",
+    "sha256": "B787E66E43467006C75AD102CBEAB8CBE6ECF5AEA494DCAEF1404C6C656413D8",
+    "bytes": 262
+  },
+  {
+    "file": "sdkconfig.defaults",
+    "sha256": "185F8592D24B5485E9AED153563B82C25848653E294A1C98368106AAA9558E66",
+    "bytes": 278
+  },
+  {
+    "file": "sdkconfig.esp32s3",
+    "sha256": "B9C8CD7D594F18E95D4E78750423B3DD5FE32533D4070E9F430BBC952BF14930",
+    "bytes": 112332
+  }
+]

@@ -1,0 +1,19 @@
+* text=auto eol=lf
+*.py text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.ps1 text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.svg text eol=lf
+*.png binary
+*.ico binary
+*.ttf binary
+*.ndi binary
+*.bin binary
+
+# Preserve the supplied hardware references byte-for-byte for manifest checks.
+references/original/** binary !eol
+references/original/manifest.json text eol=lf diff merge

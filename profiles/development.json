@@ -1,0 +1,85 @@
+{
+  "id": "development",
+  "name": "Development",
+  "category": "development",
+  "revision": 1,
+  "buttons": [
+    {
+      "id": "vscode",
+      "label": "VS Code",
+      "icon": "code",
+      "action": {
+        "type": "launch_app",
+        "target": "code",
+        "args": []
+      }
+    },
+    {
+      "id": "terminal",
+      "label": "Terminal",
+      "icon": "terminal",
+      "action": {
+        "type": "launch_app",
+        "target": "terminal",
+        "args": []
+      }
+    },
+    {
+      "id": "powershell",
+      "label": "PowerShell",
+      "icon": "powershell",
+      "action": {
+        "type": "launch_app",
+        "target": "powershell",
+        "args": []
+      }
+    },
+    {
+      "id": "explorer",
+      "label": "Explorer",
+      "icon": "folder",
+      "action": {
+        "type": "launch_app",
+        "target": "explorer",
+        "args": []
+      }
+    },
+    {
+      "id": "github",
+      "label": "GitHub",
+      "icon": "github",
+      "action": {
+        "type": "open_url",
+        "url": "https://github.com"
+      }
+    },
+    {
+      "id": "project",
+      "label": "Open project",
+      "icon": "project",
+      "action": {
+        "type": "launch_app",
+        "target": "project",
+        "args": []
+      }
+    },
+    {
+      "id": "dev_server",
+      "label": "Dev server",
+      "icon": "server",
+      "action": {
+        "type": "launch_app",
+        "target": "dev_server",
+        "args": []
+      }
+    },
+    {
+      "id": "screenshot",
+      "label": "Screenshot",
+      "icon": "camera",
+      "action": {
+        "type": "screenshot"
+      }
+    }
+  ]
+}

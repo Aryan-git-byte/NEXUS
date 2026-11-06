@@ -1,0 +1,2 @@
+-r requirements-dev.txt
+ziglang==0.14.1
