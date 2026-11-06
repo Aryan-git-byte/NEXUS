@@ -90,7 +90,9 @@ lv_color_t tile_color(const char* name) {
         {"volume_down",0xdff2f7},{"mute",0xffe7d4},{"copy",0xe0f1ff},{"paste",0xe1f4e6},
         {"cut",0xe1f4f6},{"undo",0xeee5ff},{"save",0xe2ecff},{"desktop",0xe0f0ff},
         {"lock",0xffefca},{"browser",0xe0f3ff},{"text",0xeee5ff},{"game",0xede3ff},
-        {"mail",0xffe8d5},{"calendar",0xffe2e9},{"search",0xe0f1ff},{"star",0xffefc9}};
+        {"mail",0xffe8d5},{"calendar",0xffe2e9},{"search",0xe0f1ff},{"star",0xffefc9},
+        {"calculator",0xe1eeff},{"timer",0xffdfeb},{"2048",0xffedcb},
+        {"snake",0xddeeff},{"pet",0xffedd8}};
     for (const auto& item : colors) if (std::strcmp(name,item.name) == 0) return lv_color_hex(item.color);
     return lv_color_hex(0xe7ecff);
 }
@@ -121,7 +123,8 @@ const char* icon(const char* name) {
         {"copy",LV_SYMBOL_COPY},{"paste",LV_SYMBOL_PASTE},{"cut",LV_SYMBOL_CUT},{"undo",LV_SYMBOL_REFRESH},
         {"save",LV_SYMBOL_SAVE},{"desktop",LV_SYMBOL_VIDEO},{"lock",LV_SYMBOL_EYE_CLOSE},
         {"browser",LV_SYMBOL_GPS},{"text","Aa"},{"game","+"},{"mail",LV_SYMBOL_ENVELOPE},
-        {"calendar",LV_SYMBOL_LIST},{"search",LV_SYMBOL_EYE_OPEN},{"star",LV_SYMBOL_OK},{"custom",LV_SYMBOL_PLUS}};
+        {"calendar",LV_SYMBOL_LIST},{"search",LV_SYMBOL_EYE_OPEN},{"star",LV_SYMBOL_OK},{"custom",LV_SYMBOL_PLUS},
+        {"calculator","+="},{"timer",LV_SYMBOL_BELL},{"2048","2048"},{"snake","S"},{"pet","CAT"}};
     for (const auto& item : icons) if (std::strcmp(name,item.name) == 0) return item.glyph;
     return LV_SYMBOL_PLUS;
 }

@@ -13,6 +13,7 @@
 *.ttf binary
 *.ndi binary
 *.bin binary
+*.wav binary
 
 # Preserve the supplied hardware references byte-for-byte for manifest checks.
 references/original/** binary !eol

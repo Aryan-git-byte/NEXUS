@@ -41,6 +41,8 @@ class Tray:
         self.icon.setContextMenu(menu)
         self.icon.activated.connect(lambda reason: self.show() if reason == QSystemTrayIcon.ActivationReason.DoubleClick else None)
         controller.status_changed.connect(lambda state, detail: self.icon.setToolTip(f"NEXUS DECK · {state.title()}\n{detail[:120]}"))
+        controller.timer_finished.connect(lambda title, text: self.icon.showMessage(
+            title,text,QSystemTrayIcon.MessageIcon.Information,10000))
         self.icon.show()
 
     def show(self) -> None:

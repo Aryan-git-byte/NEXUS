@@ -22,6 +22,7 @@ from .protocol import (COMMAND_UUID, PROFILE_UUID, RESPONSE_UUID, SERVICE_UUID, 
                        fragment, sequence)
 from .settings import Settings
 from .icons import profile_assets
+from .alerts import TIMER_ALERTS
 
 log = logging.getLogger(__name__)
 
@@ -37,11 +38,13 @@ class CommandDispatcher:
         self.highest_sequence = 0
         self.lock = asyncio.Lock()
         self.last_action = 0.0
+        self.last_alert = 0.0
 
     def begin(self, session: str, profiles: dict[str, dict[str, Any]]) -> None:
         self.session, self.profiles = session, copy.deepcopy(profiles)
         self.cache.clear()
         self.highest_sequence = 0
+        self.last_alert = 0.0
 
     async def handle(self, message: dict[str, Any]) -> dict[str, Any]:
         async with self.lock:
@@ -57,6 +60,18 @@ class CommandDispatcher:
                 return response
             self.highest_sequence = seq
             try:
+                if message.get("type") == "timer_alert":
+                    if set(message) != {"type", "sequence", "session", "kind"} or message.get("kind") not in TIMER_ALERTS:
+                        raise ValueError("Invalid timer event")
+                    if time.monotonic() - self.last_alert < 0.5:
+                        raise ValueError("Timer alert rate limit reached")
+                    self.last_alert = time.monotonic()
+                    result = await asyncio.to_thread(self.engine.timer_alert,message["kind"])
+                    response.update(status="success",message=result)
+                    self.cache[seq] = response
+                    while len(self.cache) > 64:
+                        self.cache.popitem(last=False)
+                    return response
                 if message.get("type") != "action":
                     raise ValueError("Only registered actions are accepted")
                 if set(message) - {"type", "sequence", "session", "profile", "id", "gesture", "value"}:
@@ -282,7 +297,7 @@ class BluetoothManager:
                     continue
                 response = await self.dispatcher.handle(message)
                 await self._write(RESPONSE_UUID, response)
-                self.on_action(str(message.get("id", "")), response["status"] + ": " + response["message"])
+                self.on_action(str(message.get("id", message.get("type", ""))), response["status"] + ": " + response["message"])
             except (ProtocolError, BleakError) as exc:
                 log.warning("Rejected command: %s", exc)
             finally:

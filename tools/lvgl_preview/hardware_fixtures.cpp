@@ -12,8 +12,10 @@
 std::vector<uint16_t> preview_pixels;
 std::filesystem::path preview_icon_directory;
 static const auto clock_origin = std::chrono::steady_clock::now();
+uint64_t preview_time_offset_ms = 0;
+std::vector<nexus::apps::TimerEvent> preview_timer_events;
 int64_t esp_timer_get_time() {
-    return 1000 + std::chrono::duration_cast<std::chrono::microseconds>(
+    return 1000 + preview_time_offset_ms * 1000 + std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now() - clock_origin).count();
 }
 int xQueueSend(QueueHandle_t,const void*,unsigned) { return pdFALSE; }
@@ -65,7 +67,13 @@ esp_err_t BleManager::initialize() {
 }
 uint32_t BleManager::action(const char*,const char*,bool) { return ready() ? ++sequence_ : 0; }
 uint32_t BleManager::volume(int) { return ready() ? ++sequence_ : 0; }
+uint32_t BleManager::timer_alert(apps::TimerEvent event) {
+    if (!ready()) return 0;
+    preview_timer_events.push_back(event); return ++sequence_;
+}
 bool BleManager::save_settings(const DeviceSettings&) { return true; }
+bool BleManager::save_apps(const apps::Preferences&) { return true; }
+esp_err_t Storage::load_apps(apps::Preferences&) { return ESP_ERR_NOT_FOUND; }
 bool BleManager::select_profile(const char*) { return ready(); }
 bool BleManager::open_pairing() { return !connected(); }
 bool BleManager::forget_pc() { has_identity_ = false; return true; }

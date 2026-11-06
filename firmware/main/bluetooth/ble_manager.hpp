@@ -16,7 +16,9 @@ public:
     esp_err_t initialize();
     uint32_t action(const char* profile, const char* button, bool long_press);
     uint32_t volume(int value);
+    uint32_t timer_alert(apps::TimerEvent event);
     bool save_settings(const DeviceSettings& settings);
+    bool save_apps(const apps::Preferences& preferences);
     bool select_profile(const char* profile);
     bool open_pairing();
     bool forget_pc();
@@ -31,10 +33,11 @@ public:
     uint32_t pairing_remaining() const;
 private:
     struct Chunk { uint16_t connection = 0, size = 0; uint32_t generation = 0; Channel channel{}; uint8_t data[512]{}; };
-    enum class RequestKind : uint8_t { Action, Volume, Settings, Select, Pair, Forget, Restart, Reset };
+    enum class RequestKind : uint8_t { Action, Volume, Settings, Select, Pair, Forget, Restart, Reset, Apps, TimerAlert };
     struct Request {
         RequestKind kind{}; uint32_t sequence = 0; int value = 0; bool long_press = false;
         char profile[33]{}, button[33]{}; DeviceSettings settings{};
+        apps::Preferences apps{};
     };
     struct Pending {
         bool used = false; uint8_t attempts = 0; uint32_t sequence = 0;

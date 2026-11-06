@@ -8,6 +8,7 @@
 #include <cctype>
 #include "freertos/task.h"
 #include "sys/time.h"
+#include "esp_timer.h"
 
 namespace nexus {
 UiManager::UiManager(LcdDriver& lcd, TouchDriver& touch, BleManager& ble, Storage& storage,
@@ -15,6 +16,12 @@ UiManager::UiManager(LcdDriver& lcd, TouchDriver& touch, BleManager& ble, Storag
     : lcd_(lcd),touch_(touch),ble_(ble),storage_(storage),profiles_(std::move(profiles)),settings_(settings) {}
 
 esp_err_t UiManager::initialize() {
+    if (storage_.load_apps(local_) != ESP_OK) local_ = apps::Preferences{};
+    random_ = apps::Random(static_cast<uint32_t>(esp_timer_get_time()));
+    game2048_.reset(random_); snake_.reset(random_);
+    timer_.set_duration(local_.timer_seconds);
+    timer_.set_mode(static_cast<apps::TimerMode>(local_.timer_mode));
+    pet_.initialize(now_ms());
     style::initialize(settings_.theme);
     lv_display_set_theme(lcd_.display(),lv_theme_default_init(lcd_.display(),style::accent,
                          style::muted,false,&lv_font_montserrat_14));
@@ -29,7 +36,22 @@ esp_err_t UiManager::initialize() {
     lv_obj_set_style_bg_color(dim_,lv_color_black(),0);
     lv_obj_remove_flag(dim_,LV_OBJ_FLAG_CLICKABLE); lv_obj_remove_flag(dim_,LV_OBJ_FLAG_SCROLLABLE);
     toast_ = style::card(lv_layer_top()); lv_obj_add_flag(toast_,LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(toast_,LV_OBJ_FLAG_CLICKABLE);
     toast_label_ = style::label(toast_,""); lv_label_set_long_mode(toast_label_,LV_LABEL_LONG_WRAP);
+    pet_descriptor_.header.magic = LV_IMAGE_HEADER_MAGIC;
+    pet_descriptor_.header.cf = LV_COLOR_FORMAT_ARGB8888;
+    pet_descriptor_.header.w = pet_descriptor_.header.h = 24;
+    pet_descriptor_.header.stride = 24 * 4;
+    pet_descriptor_.data_size = pet_pixels_.size() * sizeof(uint32_t);
+    pet_descriptor_.data = reinterpret_cast<const uint8_t*>(pet_pixels_.data());
+    pet_overlay_ = lv_obj_create(lv_layer_top()); lv_obj_remove_style_all(pet_overlay_);
+    lv_obj_remove_flag(pet_overlay_,LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(pet_overlay_,LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(pet_overlay_,pet_event,LV_EVENT_ALL,this);
+    pet_small_image_ = lv_image_create(pet_overlay_);
+    lv_image_set_src(pet_small_image_,&pet_descriptor_);
+    lv_image_set_pivot(pet_small_image_,0,0);
+    lv_obj_remove_flag(pet_small_image_,LV_OBJ_FLAG_CLICKABLE);
     build(touch_.calibrated() ? Page::Home : Page::Calibration,false);
     return ESP_OK;
 }
@@ -55,33 +77,37 @@ void UiManager::build_shell() {
     status_label_ = style::label(header,"Offline",&lv_font_montserrat_14,true); lv_obj_set_pos(status_label_,24,23);
     pc_name_ = style::label(header,"",&lv_font_montserrat_14,true);
     lv_obj_set_height(pc_name_,lv_font_montserrat_14.line_height);
-    lv_obj_set_width(pc_name_,lcd_.width() - 230); lv_label_set_long_mode(pc_name_,LV_LABEL_LONG_DOT);
+    lv_obj_set_width(pc_name_,lcd_.width() - 272); lv_label_set_long_mode(pc_name_,LV_LABEL_LONG_DOT);
     lv_obj_set_pos(pc_name_,92,8);
     clock_ = style::label(header,"--:--",&lv_font_montserrat_20); lv_obj_align(clock_,LV_ALIGN_TOP_RIGHT,-12,0);
     date_ = style::label(header,"Sync clock",&lv_font_montserrat_14,true); lv_obj_align(date_,LV_ALIGN_BOTTOM_RIGHT,-12,0);
     content_ = lv_obj_create(root_); lv_obj_remove_style_all(content_);
     lv_obj_set_pos(content_,12,48); lv_obj_set_size(content_,lcd_.width() - 24,lcd_.height() - 98);
     lv_obj_remove_flag(content_,LV_OBJ_FLAG_SCROLLABLE);
-    static const char* names[] = {"Home","Dev","Media","Stats","Macros","Setup"};
-    const bool portrait = lcd_.width() < lcd_.height();
+    static const char* names[] = {"Home","Dev","Media","Stats","Apps","Setup"};
+    static const Page targets[] = {Page::Home,Page::Development,Page::Media,Page::Monitor,Page::Apps,Page::Settings};
     int width = lcd_.width() / 6;
     for (uint8_t i = 0; i < 6; ++i) {
-        auto* button = style::action_button(root_,portrait && i == 4 ? "More" : names[i]);
+        auto* button = style::action_button(root_,names[i]);
         lv_obj_set_size(button,i == 5 ? lcd_.width() - i * width : width - 2,40);
         lv_obj_set_pos(button,i * width,lcd_.height() - 42);
         lv_obj_set_style_radius(button,8,0); lv_obj_set_style_border_width(button,0,0);
         auto* label = lv_obj_get_child(button,0);
         lv_obj_set_width(label,width - 6); lv_label_set_long_mode(label,LV_LABEL_LONG_DOT);
         lv_obj_set_style_text_align(label,LV_TEXT_ALIGN_CENTER,0); lv_obj_center(label);
-        if (i == static_cast<uint8_t>(page_)) lv_obj_add_style(button,&style::selected,0);
+        if (page_ == targets[i] || (i == 4 && (page_ >= Page::Apps || page_ == Page::Custom)))
+            lv_obj_add_style(button,&style::selected,0);
         else lv_obj_set_style_bg_color(button,style::background,0);
-        lv_obj_set_user_data(button,reinterpret_cast<void*>(static_cast<uintptr_t>(i)));
+        lv_obj_set_user_data(button,reinterpret_cast<void*>(static_cast<uintptr_t>(targets[i])));
         lv_obj_add_event_cb(button,nav_event,LV_EVENT_CLICKED,this);
     }
 }
 
 void UiManager::build(Page page, bool animate) {
     lv_obj_t* previous = lv_screen_active();
+    if (page != page_) { snake_running_ = false; next_snake_ = 0; }
+    if (page != Page::Timer) close_duration();
+    clear_app_views();
     page_ = page;
     home_cpu_ = home_ram_ = home_battery_ = media_title_ = media_artist_ = volume_slider_ = volume_label_ = nullptr;
     status_dot_ = status_label_ = pc_name_ = clock_ = date_ = day_ = settings_connection_ = chart_ = nullptr;
@@ -89,6 +115,7 @@ void UiManager::build(Page page, bool animate) {
     std::fill(std::begin(metric_labels_),std::end(metric_labels_),nullptr);
     std::fill(std::begin(metric_bars_),std::end(metric_bars_),nullptr);
     root_ = lv_obj_create(nullptr); lv_obj_remove_style_all(root_); lv_obj_add_style(root_,&style::screen,0);
+    content_ = nullptr;
     lv_obj_remove_flag(root_,LV_OBJ_FLAG_SCROLLABLE);
     if (page == Page::Calibration) build_calibration();
     else if (page == Page::Screensaver) build_screensaver();
@@ -99,12 +126,22 @@ void UiManager::build(Page page, bool animate) {
         case Page::Media: build_media(); break;
         case Page::Monitor: build_monitor(); break;
         case Page::Settings: build_settings(); break;
+        case Page::Apps: build_apps(); break;
+        case Page::Calculator: build_calculator(); break;
+        case Page::Timer: build_timer(); break;
+        case Page::Game2048: build_2048(); break;
+        case Page::Snake: build_snake(); break;
+        case Page::Pet: build_pet(); break;
         default: break;
         }
     }
     if (animate) { lv_screen_load_anim(root_,LV_SCR_LOAD_ANIM_FADE_IN,100,0,true); transition_until_ = now_ms() + 160; }
     else { lv_screen_load(root_); if (previous && previous != root_) lv_obj_delete(previous); }
     lv_obj_set_size(dim_,lcd_.width(),lcd_.height()); lv_obj_set_pos(dim_,0,0);
+    if (page == Page::Screensaver || page == Page::Calibration) {
+        lv_obj_add_flag(toast_,LV_OBJ_FLAG_HIDDEN); toast_until_ = 0;
+    } else if (!lv_obj_has_flag(toast_,LV_OBJ_FLAG_HIDDEN)) position_toast();
+    position_pet(); pet_frame_ = -1; draw_pet(now_ms());
     brightness(); update_values(); update_clock();
     lv_indev_reset(input_,nullptr);
 }
@@ -127,14 +164,26 @@ void UiManager::brightness() {
     lv_obj_move_foreground(toast_);
     if (pairing_) lv_obj_move_foreground(pairing_);
     if (dialog_) lv_obj_move_foreground(dialog_);
+    if (duration_dialog_) lv_obj_move_foreground(duration_dialog_);
 }
-void UiManager::toast(const char* message, bool error) {
+void UiManager::position_toast() {
     lv_obj_set_width(toast_,lcd_.width() - 24); lv_obj_set_height(toast_,LV_SIZE_CONTENT);
     lv_obj_set_width(toast_label_,lcd_.width() - 46);
-    style::set_text(toast_label_,message);
-    lv_obj_set_style_text_color(toast_label_,error ? style::warning : style::foreground,0);
+    lv_obj_update_layout(toast_);
     lv_obj_align(toast_,LV_ALIGN_BOTTOM_MID,0,-46);
+}
+void UiManager::update_toast(uint64_t now) {
+    if (toast_until_ && now >= toast_until_) {
+        lv_obj_add_flag(toast_,LV_OBJ_FLAG_HIDDEN); toast_until_ = 0;
+    }
+}
+void UiManager::toast(const char* message, bool error) {
+    if (page_ == Page::Screensaver) return;
+    style::set_text(toast_label_,message);
+    lv_obj_set_style_text_color(toast_label_,style::foreground,0);
+    lv_obj_set_style_border_color(toast_,error ? style::danger : style::border,0);
     lv_obj_remove_flag(toast_,LV_OBJ_FLAG_HIDDEN); lv_obj_move_foreground(toast_);
+    position_toast();
     toast_until_ = now_ms() + 2700;
 }
 void UiManager::press(ButtonView& view, bool long_press) {
@@ -191,12 +240,14 @@ void UiManager::confirm(const char* title, const char* text, uint8_t operation) 
     auto* accept = lv_msgbox_add_footer_button(dialog_,"Confirm");
     lv_obj_set_user_data(accept,reinterpret_cast<void*>(1)); lv_obj_add_event_cb(accept,confirm_event,LV_EVENT_CLICKED,this);
     lv_obj_center(dialog_); lv_obj_move_foreground(dialog_);
+    position_pet();
 }
 void UiManager::confirm_event(lv_event_t* event) {
     auto* self = static_cast<UiManager*>(lv_event_get_user_data(event));
     auto* object = static_cast<lv_obj_t*>(lv_event_get_current_target(event));
     bool accepted = reinterpret_cast<uintptr_t>(lv_obj_get_user_data(object)) == 1;
     lv_msgbox_close(self->dialog_); self->dialog_ = nullptr;
+    self->position_pet();
     if (accepted) {
         bool queued = self->confirmation_ == 2 ? self->ble_.forget_pc() : self->ble_.restart(self->confirmation_ == 1);
         if (!queued) self->toast("Device queue busy; try again",true);
@@ -271,17 +322,24 @@ void UiManager::update_values() {
 
 void UiManager::event(const UiEvent& incoming) {
     switch (incoming.kind) {
+    case UiEventKind::AppsSaved:
+        local_save_pending_ = false;
+        if (!incoming.value) {
+            local_dirty_ = true; next_local_save_ = now_ms() + 30000;
+            toast("Local app preferences could not be saved",true);
+        }
+        break;
     case UiEventKind::Link:
         link_ = incoming.value; ready_ = secure_ = false;
         if (!link_) {
             telemetry_.received_ms = 0;
-            if (pairing_) { lv_obj_delete(pairing_); pairing_ = pairing_label_ = nullptr; }
+            if (pairing_) { lv_obj_delete(pairing_); pairing_ = pairing_label_ = nullptr; position_pet(); }
             toast("PC disconnected. Your profiles are available.");
         }
         update_values(); break;
     case UiEventKind::Secure:
         secure_ = incoming.value;
-        if (pairing_) { lv_obj_delete(pairing_); pairing_ = pairing_label_ = nullptr; }
+        if (pairing_) { lv_obj_delete(pairing_); pairing_ = pairing_label_ = nullptr; position_pet(); }
         update_values(); break;
     case UiEventKind::Ready:
         ready_ = incoming.value;
@@ -295,9 +353,13 @@ void UiManager::event(const UiEvent& incoming) {
             lv_obj_set_style_text_align(pairing_label_,LV_TEXT_ALIGN_CENTER,0); lv_obj_center(pairing_label_);
         }
         char text[128]; std::snprintf(text,sizeof(text),"Pair NEXUS DECK\n\n%06ld\n\nEnter this passkey on Windows",static_cast<long>(incoming.value));
-        style::set_text(pairing_label_,text); lv_obj_move_foreground(pairing_); break;
+        style::set_text(pairing_label_,text); lv_obj_move_foreground(pairing_); position_pet(); break;
     }
     case UiEventKind::Response:
+        if (incoming.sequence == timer_alert_sequence_) {
+            timer_alert_sequence_ = 0;
+            if (incoming.text[0]) toast(incoming.text,!incoming.value);
+        }
         for (uint8_t i = 0; i < button_count_; ++i) if (buttons_[i].sequence == incoming.sequence) {
             lv_obj_set_style_border_color(buttons_[i].object,incoming.value ? style::success : style::danger,0);
             buttons_[i].feedback_until = now_ms() + 900; buttons_[i].sequence = 0;
@@ -409,13 +471,15 @@ void UiManager::run() {
             build(pending_page_);
         }
         const uint64_t now = now_ms();
+        update_apps(now);
         if (now >= next_clock_) { update_clock(); update_values(); next_clock_ = now + 1000; }
         for (uint8_t i = 0; i < button_count_; ++i) if (buttons_[i].feedback_until && now >= buttons_[i].feedback_until) {
             lv_obj_set_style_border_color(buttons_[i].object,style::border,0);
             buttons_[i].feedback_until = 0; buttons_[i].sequence = 0;
         }
-        if (toast_until_ && now >= toast_until_) { lv_obj_add_flag(toast_,LV_OBJ_FLAG_HIDDEN); toast_until_ = 0; }
-        if (settings_.screensaver && page_ != Page::Calibration && page_ != Page::Screensaver && !dialog_ && !pairing_ &&
+        update_toast(now);
+        if (settings_.screensaver && page_ != Page::Calibration && page_ != Page::Screensaver &&
+            !dialog_ && !pairing_ && !duration_dialog_ && !snake_running_ &&
             now - last_interaction_ >= settings_.idle_seconds * 1000) { previous_page_ = page_; schedule(Page::Screensaver); }
         uint32_t delay = lv_timer_handler();
         vTaskDelay(pdMS_TO_TICKS(std::clamp<uint32_t>(delay,2,10)));

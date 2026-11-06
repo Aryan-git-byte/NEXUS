@@ -9,6 +9,7 @@ flowchart LR
   Touch[XPT2046 sampling task\n8 ms / core 0] --> Snapshot[Protected touch snapshot]
   Snapshot --> UI[LVGL task\ncore 1]
   UI --> LCD[Partial RGB565 flush\n16-bit GPIO bus]
+  UI --> Apps[Local calculator, games, timers and cat]
   UI --> Requests[Bounded request queue]
   Requests --> Worker[BLE I/O worker\ncore 0]
   Host[NimBLE host\ncore 0] --> Fragments[Bounded fragment queue]
@@ -50,6 +51,22 @@ once at the end of the calibration interaction. NVS handles are closed on every
 path. A first boot loads compiled presentation profiles; subsequent boots load
 the saved layouts without needing a PC connection.
 
+The local app models in `apps/local_apps.cpp` use bounded arrays and have no
+LVGL, BLE or operating-system dependencies. UI callbacks update them in the
+existing UI task. Snake advances from monotonic deadlines and pauses when its
+page is left. Timers use elapsed time, so PC wall-clock synchronization cannot
+change their duration. No app starts an additional blocking loop.
+
+Snake renders a fixed 80 × 64 RGB565 image (10,240 bytes), scaled without
+antialiasing. The cat shares a 24 × 24 ARGB image (2,304 bytes) between its header
+and page views. Reactions invalidate these small regions; the clock cat is static
+during sleep. Calculator text and game state use fixed-size storage.
+
+The validated `nexus_apps/prefs_v1` NVS record is separate from device settings,
+touch calibration, profiles and bonds. App writes pass through the existing
+worker queue and are coalesced. Active timers and game boards remain in RAM;
+high scores, cat care and preferences survive restart.
+
 ## Windows ownership
 
 Qt owns the GUI thread. `Controller` runs an asyncio service on a separate thread
@@ -57,6 +74,11 @@ and exchanges queued Qt signals. BLE discovery, reconnects, writes, replies, and
 profile acknowledgements run there. psutil/audio monitoring and actions run in
 worker threads. COM audio objects are created and released on their calling
 thread, never shared across Qt or asyncio threads.
+
+Timer completion is a built-in notification event, handled through the same
+session and response cache as actions. It can select only countdown, focus or
+break; it cannot select an executable or a sound file. The companion owns the
+packaged PCM chime path, plays it asynchronously, and queues a Qt tray notification.
 
 The editor works on a draft. Saving validates it and replaces a JSON file
 atomically. Sync sends only presentation fields to the deck. The executable

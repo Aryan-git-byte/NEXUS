@@ -92,7 +92,7 @@ int BleManager::access(uint16_t connection, uint16_t, ble_gatt_access_ctxt* cont
     if (context->op == BLE_GATT_ACCESS_OP_READ_CHR) {
         char status[256];
         const int count = std::snprintf(status, sizeof(status),
-            "{\"name\":\"NEXUS DECK\",\"firmware\":\"%s\",\"protocol\":1,\"icon_assets\":true,\"max_message\":49152,\"ready\":%s,\"mtu\":%u}",
+            "{\"name\":\"NEXUS DECK\",\"firmware\":\"%s\",\"protocol\":1,\"icon_assets\":true,\"local_apps\":true,\"timer_alerts\":true,\"max_message\":49152,\"ready\":%s,\"mtu\":%u}",
             config::kVersion, self.ready_ ? "true" : "false", ble_att_mtu(connection));
         return os_mbuf_append(context->om, status, count) == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
     }
@@ -242,6 +242,17 @@ uint32_t BleManager::volume(int value) {
 bool BleManager::save_settings(const DeviceSettings& settings) {
     Request r{}; r.kind = RequestKind::Settings; r.settings = settings;
     return xQueueSend(requests_, &r, 0) == pdTRUE;
+}
+uint32_t BleManager::timer_alert(apps::TimerEvent event) {
+    if (!ready_ || event == apps::TimerEvent::None || static_cast<unsigned>(event) > 3) return 0;
+    Request r{}; r.kind = RequestKind::TimerAlert; r.sequence = next_sequence();
+    r.value = static_cast<int>(event);
+    return xQueueSend(requests_,&r,0) == pdTRUE ? r.sequence : 0;
+}
+bool BleManager::save_apps(const apps::Preferences& preferences) {
+    if (!apps::valid_preferences(preferences)) return false;
+    Request r{}; r.kind = RequestKind::Apps; r.apps = preferences;
+    return xQueueSend(requests_,&r,0) == pdTRUE;
 }
 bool BleManager::select_profile(const char* profile) {
     if (!valid_identifier(profile)) return false;
@@ -398,6 +409,10 @@ void BleManager::incoming(Channel channel, uint8_t* data, size_t size) {
 void BleManager::request(const Request& r) {
     UiEvent event{}; event.kind = UiEventKind::Notice;
     switch (r.kind) {
+    case RequestKind::Apps:
+        event.kind = UiEventKind::AppsSaved;
+        event.value = storage_.save_apps(r.apps) == ESP_OK;
+        post_ui(event); break;
     case RequestKind::Settings:
         if (storage_.save_settings(r.settings) != ESP_OK) {
             std::snprintf(event.text,sizeof(event.text),"Settings could not be saved"); post_ui(event);
@@ -429,14 +444,19 @@ void BleManager::request(const Request& r) {
         notify(Channel::Commands,json); break;
     }
     case RequestKind::Action:
-    case RequestKind::Volume: {
+    case RequestKind::Volume:
+    case RequestKind::TimerAlert: {
         Pending* free = nullptr;
         for (auto& p : pending_) if (!p.used) { free = &p; break; }
         if (!ready_ || !free) {
             event.kind = UiEventKind::Response; event.sequence = r.sequence; event.value = 0;
             std::snprintf(event.text,sizeof(event.text),"PC unavailable or action queue full"); post_ui(event); break;
         }
-        if (r.kind == RequestKind::Volume)
+        if (r.kind == RequestKind::TimerAlert) {
+            const char* kinds[] = {"","countdown","focus","break"};
+            std::snprintf(free->json,sizeof(free->json),"{\"type\":\"timer_alert\",\"kind\":\"%s\",\"sequence\":%lu,\"session\":\"%s\"}",
+                          kinds[std::clamp(r.value,1,3)],static_cast<unsigned long>(r.sequence),session_);
+        } else if (r.kind == RequestKind::Volume)
             std::snprintf(free->json,sizeof(free->json),"{\"type\":\"action\",\"id\":\"system_volume_set\",\"value\":%d,\"sequence\":%lu,\"session\":\"%s\"}",
                           r.value,static_cast<unsigned long>(r.sequence),session_);
         else

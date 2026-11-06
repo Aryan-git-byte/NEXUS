@@ -1,107 +1,117 @@
-# Recorded verification
+# Recorded verification: 1.2.0
 
-Results recorded on 6 November 2026, with ESP-IDF 5.5.4, LVGL 9.2.2,
-64-bit Python 3.11 and the connected ESP32-S3 rev v0.2 (16 MB flash,
-8 MB embedded PSRAM). The firmware does not require PSRAM.
+Recorded on 6 November 2026 with ESP-IDF 5.5.4, LVGL 9.2.2 and 64-bit
+Python 3.11 on Windows 11. The companion is installed and running. Firmware
+1.2.0 is built but has **not** been uploaded: the ESP32's ROM download port and
+BLE advertisements were unavailable during this verification.
 
-## Firmware build and upload
+## Firmware build
 
-Firmware 1.1.1 built successfully with the installed universal Xtensa compiler:
+The final build, including the notification layout fixes, exited successfully:
 
 ```text
-[10/12] Linking CXX executable nexus_deck.elf
+[18/20] Linking CXX executable nexus_deck.elf
 Successfully created esp32s3 image.
-nexus_deck.bin binary size 0xe8130 bytes.
-Smallest app partition is 0x400000 bytes. 0x317ed0 bytes (77%) free.
+nexus_deck.bin binary size 0x107f30 bytes.
+Smallest app partition is 0x400000 bytes. 0x2f80d0 bytes (74%) free.
 ```
 
-The upload on COM17 wrote the bootloader, partition table and 950,576-byte
-application. Esptool reported `Hash of data verified` for all three images and
-reset the board. Current NVS settings/calibration were retained. The original
-application and the current flash layout were backed up before writes.
+The application is 1,081,136 bytes. SHA-256:
 
-The retained upload summary is in `test-results/firmware-upload.json`. Compiler
-and upload logs are generated locally and ignored by Git. Device backups are
-also private because they may contain bond keys. The current application binary's
-SHA-256 was checked against the actual flash plan and matches the uploaded image.
+```text
+2fd5237e7c883bfcada80fa0c4a0e15e211dd4fe6dd587b12b35a1e17000afa6
+```
+
+`test-results/firmware-build-1.2.0.json` records the image hashes and validated
+flash plan. The original LCD/touch pin configuration, display initialization,
+RGB565 transport and calibration storage are unchanged. The new app preferences
+use a separate `nexus_apps/prefs_v1` record. Compiling does not verify physical
+touch, rendering, radio operation or persistence on the board.
 
 ## Windows regression tests
 
 ```text
-116 passed in 2.48s
+120 passed in 3.16s
 ```
 
-The suite exercises UTF-8 fragmentation at minimum MTU, CRC and malformed
-packets, ID/action/profile validation, duplicate command suppression, approved
-text, Windows input construction, media/monitor fallbacks, fake-central
-handshakes and synchronization, real Qt edit/save/reorder/reload flows,
-authenticated passkey pairing callbacks and calibration-preserving flash plans.
-It also covers imported color/animated artwork and the Windows Terminal alias
-when a GUI/startup process has no WindowsApps directory in PATH.
+The suite retains the existing protocol, profile, editor, Windows input,
+monitoring, pairing and calibration-preserving flash tests. New checks cover
+the original PCM chime, disabled/unavailable audio fallback, boolean settings
+migration, session-bound timer events, validation and duplicate suppression.
+Windows input is intercepted in regression tests.
 
-Results: `test-results/python-tests.xml`. Windows input calls in regression
-tests are intercepted; these tests do not send arbitrary shortcuts to the PC.
+Results: `test-results/python-tests.xml`, with the machine hostname removed.
 
-## Physical status
+## Native local-app tests
 
-The user confirmed the light, colorful device interface and all four separate,
-readable Setup dropdowns after the previous update. After uploading 1.1.1 and
-resetting, they reported the NEXUS dashboard or new black clock. This confirms
-that the updated application boots on the actual board.
-
-Real Windows companion logs recorded the encrypted handshake with firmware
-1.1.1, six synchronized profiles and five artwork assets. The connection and
-synchronization resumed after the final installed app restart:
+The host build compiles the actual firmware model code. All five groups passed:
 
 ```text
-2026-11-06 20:05:18 INFO NEXUS DECK companion 1.1.1 started in background
-2026-11-06 20:05:28 INFO Encrypted BLE session established with firmware 1.1.1
-2026-11-06 20:05:35 INFO Profiles synchronized: 6 profiles, 5 artwork assets
+PASS: 2048 merges, undo, stuck boards, bounds and 30 seeded games
+PASS: Snake turns, tail movement, collisions, food and a full-board win
+PASS: calculator arithmetic, percentages, repeated equals and error recovery
+PASS: countdown deadlines, pause/resume, focus cycles, long break and stopwatch laps
+PASS: pet pat reactions, care, slow decay, offline recovery and record validation
 ```
 
-These are selected log messages, with millisecond precision and logger names
-omitted. Full user runtime logs stay in LocalAppData; they are not source assets.
+See `test-results/lvgl-preview/local-app-tests.log`. These checks execute real
+game/calculator/timer code without accessing display, touch, NVS or BLE hardware.
 
-## LVGL layout and clock verification
+## LVGL rendering and stylus interactions
 
-The host renderer compiles the actual firmware UI against LVGL 9.2.2, using
-separate hardware fixtures. It rendered 34 screen images and verified:
+The actual firmware UI was compiled against LVGL 9.2.2 and rendered into 56
+portrait/landscape images. Checks exercised calculator keys, navigation,
+Snake pause/resume, cat pats and visibility, timer completion, duration controls
+and the four separate Settings dropdowns. Every local-app button fits its
+viewport and has a target of at least 38 by 38 logical pixels.
 
 ```text
-landscape: four separate settings controls and expanded lists rendered
-portrait: four separate settings controls and expanded lists rendered
+landscape: local app taps, navigation, cat pats, timer completion and modal targets passed
+portrait: local app taps, navigation, cat pats, timer completion and modal targets passed
 PASS: actual LVGL pages in both orientations; macro and media text do not overlap
+PASS: notifications fit after rotation, expire, allow touch and stay off the idle clock
 ```
 
-The clock checks assert a black background, white lettering, no overlapping
-labels, fitting bold digits and a retained computer name. Both clock images
-were visually inspected. The two clock images and `layout-checks.log` are
-retained in `test-results/lvgl-preview/`; the other rendered pages and build
-logs are generated locally and ignored by Git. Its test PC name and stress
-metrics are layout fixtures, not physical telemetry.
+The clock checks require black backgrounds, white lettering, fitting bold
+digits and the retained computer name. The final local-app layouts, duration
+dialog and black clock were visually inspected in both orientations.
 
-## Packaged Windows app and installation
+The layout log, native log, two clock images and two app contact sheets are
+retained in `test-results/lvgl-preview/`. Other images, fixtures and compiler
+logs are generated locally and ignored. All preview PC names and telemetry
+values are explicitly labeled fixtures, not readings from the device.
 
-The final PyInstaller package opened the real editor with six profiles, eight
-preview buttons, running background services and two actual PC telemetry samples.
-Its smoke test exited successfully; see `test-results/companion-smoke-test.json`.
+## Packaged companion and background installation
 
-Installation was performed in the intended Windows account. The installed EXE
-hash matches the tested package, exactly one installed instance was observed,
-and its command line and verified Startup-folder shortcut use `--background`.
-The installer registered the Start-menu and uninstall entries. Saved profile
-edits, configuration and pairing were retained. Evidence is in
-`test-results/companion-installed.json`. A later Windows sign-in was not simulated.
+PyInstaller built version 1.2.0 successfully. The packaged smoke test exited
+with code 0 after opening the real editor, loading six profiles and eight
+preview buttons, starting services and collecting two actual PC telemetry samples.
+See `test-results/companion-smoke-1.2.0.json`.
 
-## Acceptance on the actual board
+The per-user installer then installed 1.2.0, preserved local configuration,
+registered Start-menu/uninstall entries and started the background process.
+Verification found exactly one running installed instance, matching EXE hashes,
+`--background` arguments and the correct Startup-folder shortcut. The packaged
+and installed timer WAV hashes match the source. A later Windows sign-in was
+not simulated. Evidence: `test-results/companion-installed-1.2.0.json`.
 
-The recorded checks above establish the build/upload, physical boot, user-reported
-UI readability, encrypted reconnection, artwork/profile synchronization and
-installed background app startup. Orientation geometry and malformed-command
-rejection are also covered by automated tests.
+The Windows `PlaySound` API accepted the chime. This establishes successful API
+invocation; it does not establish that a person heard it or that a physical
+timer event reached Windows over BLE.
 
-A dedicated physical audit of touch accuracy in both orientations, calibration
-retention across power loss, every Windows macro/media command and offline
-navigation has not been performed by the agent. Those observations should be
-recorded separately when exercised. Host rendering and intercepted keyboard
-tests do not substitute for those hardware/input checks.
+## Physical status and remaining acceptance
+
+The installed 1.2.0 companion starts normally and keeps attempting reconnection.
+Its runtime log currently reports `Deck not found; power it on and enable Bluetooth`.
+The available serial ports were COM1 and Bluetooth serial links, with no ESP32
+USB download port. No writes were attempted to those unrelated ports.
+
+The user was notified that BOOT/RESET is needed to expose the upload port.
+Physical boot, touch, calibration persistence, game input, timer-to-PC audio and
+encrypted reconnection with firmware 1.2.0 remain unverified until it is flashed
+and exercised. The working 1.1.1 image remains the last verified upload.
+
+The [1.1.1 baseline record](TESTING_1.1.1.md) documents the previous successful
+COM17 upload, user-confirmed interface and black clock, encrypted handshake,
+six synchronized profiles and five artwork assets. Its retained
+`test-results/firmware-upload.json` describes **1.1.1**, not the new build.

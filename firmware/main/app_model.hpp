@@ -44,7 +44,7 @@ struct Telemetry {
     uint64_t received_ms = 0;
     char pc_name[64]{}, media_title[128]{}, media_artist[64]{};
 };
-enum class UiEventKind : uint8_t { Link, Secure, Ready, Passkey, Response, Profiles, Notice };
+enum class UiEventKind : uint8_t { Link, Secure, Ready, Passkey, Response, Profiles, Notice, AppsSaved };
 struct UiEvent {
     UiEventKind kind = UiEventKind::Notice;
     uint32_t sequence = 0;

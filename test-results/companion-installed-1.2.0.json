@@ -1,0 +1,16 @@
+{
+  "version": "1.2.0",
+  "executable_hash_verified": true,
+  "executable_sha256": "7188587e8a83da6bd2b401fe7007d541bcd03fc7a63cd3dd2d7f51418152d4f0",
+  "installed_instances": 1,
+  "background_arguments_verified": true,
+  "startup_target_verified": true,
+  "startup_arguments": "--background",
+  "start_menu_target_verified": true,
+  "uninstall_version_verified": true,
+  "timer_sound_hash_verified": true,
+  "timer_sound_sha256": "a44ed5da8fdd94d5592837742f64da72c44f2591197fb40fdea8af0ef1d2f326",
+  "ble_device_found": false,
+  "later_windows_sign_in_tested": false,
+  "observed_at": "2026-11-06T21:31:39.6058439+05:30"
+}

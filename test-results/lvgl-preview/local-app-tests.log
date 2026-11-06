@@ -1,0 +1,5 @@
+PASS: 2048 merges, undo, stuck boards, bounds and 30 seeded games
+PASS: Snake turns, tail movement, collisions, food and a full-board win
+PASS: calculator arithmetic, percentages, repeated equals and error recovery
+PASS: countdown deadlines, pause/resume, focus cycles, long break and stopwatch laps
+PASS: pet pat reactions, care, slow decay, offline recovery and record validation

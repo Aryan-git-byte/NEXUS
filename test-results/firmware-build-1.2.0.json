@@ -1,0 +1,35 @@
+{
+  "firmware": "1.2.0",
+  "esp_idf": "5.5.4",
+  "lvgl": "9.2.2",
+  "target": "esp32s3",
+  "build_exit_code": 0,
+  "application_bytes": 1081136,
+  "application_sha256": "2fd5237e7c883bfcada80fa0c4a0e15e211dd4fe6dd587b12b35a1e17000afa6",
+  "application_partition_bytes": 4194304,
+  "partition_free_bytes": 3113168,
+  "flash_plan_validated": true,
+  "flashed": false,
+  "physical_boot_verified": false,
+  "images": [
+    {
+      "offset": "0x0",
+      "file": "bootloader/bootloader.bin",
+      "bytes": 20800,
+      "sha256": "9a7dcf695b30732d167b635c09359fd34c1204689ad5125b935153357c322be2"
+    },
+    {
+      "offset": "0x8000",
+      "file": "partition_table/partition-table.bin",
+      "bytes": 3072,
+      "sha256": "b5657d180621534ebd7b506fbd6222dfffd40f01447e326e4a0e6d3d04a16d94"
+    },
+    {
+      "offset": "0x60000",
+      "file": "nexus_deck.bin",
+      "bytes": 1081136,
+      "sha256": "2fd5237e7c883bfcada80fa0c4a0e15e211dd4fe6dd587b12b35a1e17000afa6"
+    }
+  ],
+  "observed_at": "2026-11-06T21:37:09.325400+05:30"
+}

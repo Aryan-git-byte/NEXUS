@@ -31,12 +31,14 @@ class Controller(QObject):
     error = Signal(str)
     pairing_requested = Signal(str, str)
     profile_selected = Signal(str)
+    timer_finished = Signal(str, str)
 
     def __init__(self, settings: Settings, profiles: ProfileManager, directory: Path):
         super().__init__()
         self.settings, self.profiles, self.directory = settings, profiles, directory
         self.loop: asyncio.AbstractEventLoop | None = None
         self.manager: BluetoothManager | None = None
+        self.engine: ActionEngine | None = None
         self.thread: threading.Thread | None = None
         self.stop_event: asyncio.Event | None = None
         self.pin_requests: dict[str, asyncio.Future] = {}
@@ -88,7 +90,8 @@ class Controller(QObject):
     async def _run(self) -> None:
         self.loop = asyncio.get_running_loop()
         self.stop_event = asyncio.Event()
-        engine = ActionEngine(self.settings)
+        engine = ActionEngine(self.settings,timer_callback=self.timer_finished.emit)
+        self.engine = engine
         self.manager = BluetoothManager(self.settings, engine, self.status_changed.emit,
                                         self.action_finished.emit, self.address_changed.emit,
                                         self._request_pin, self.profile_selected.emit)
@@ -167,6 +170,13 @@ class Controller(QObject):
 
     def disconnect_device(self) -> None:
         self._submit(lambda: self.manager.disconnect())
+
+    def test_timer_sound(self) -> None:
+        async def operation():
+            if not self.engine:
+                raise RuntimeError("Background services are starting")
+            await asyncio.to_thread(self.engine.alerts.test)
+        self._submit(operation)
 
     def synchronize(self, active: str) -> None:
         if not self.loop or not self.manager:

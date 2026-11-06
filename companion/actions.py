@@ -14,6 +14,7 @@ from typing import Any
 
 from .profiles import validate_action, validate_shortcut
 from .settings import Settings
+from .alerts import TimerAlerts
 
 log = logging.getLogger(__name__)
 IS_WINDOWS = sys.platform == "win32"
@@ -161,10 +162,11 @@ class AudioController:
 
 class ActionEngine:
     def __init__(self, settings: Settings, input_api: WindowsInput | None = None,
-                 audio: AudioController | None = None):
+                 audio: AudioController | None = None, timer_callback=None):
         self.settings = settings
         self.input = input_api or WindowsInput()
         self.audio = audio or AudioController()
+        self.alerts = TimerAlerts(settings,timer_callback)
         self.registry = {
             "launch_app": self._launch, "keyboard_shortcut": lambda a: self.input.shortcut(a["keys"]),
             "media_play_pause": lambda a: self.input.media(0xB3),
@@ -189,6 +191,9 @@ class ActionEngine:
             raise
         except Exception as exc:
             raise ActionError(str(exc)) from exc
+
+    def timer_alert(self, kind: str) -> str:
+        return self.alerts.fire(kind)
 
     def _code_path(self) -> str:
         candidates = [Path(os.environ.get("LOCALAPPDATA", "")) / "Programs/Microsoft VS Code/Code.exe",

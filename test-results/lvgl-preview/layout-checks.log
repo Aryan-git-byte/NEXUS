@@ -1,3 +1,6 @@
 landscape: four separate settings controls and expanded lists rendered
+landscape: local app taps, navigation, cat pats, timer completion and modal targets passed
 portrait: four separate settings controls and expanded lists rendered
+portrait: local app taps, navigation, cat pats, timer completion and modal targets passed
 PASS: actual LVGL pages in both orientations; macro and media text do not overlap
+PASS: notifications fit after rotation, expire, allow touch and stay off the idle clock

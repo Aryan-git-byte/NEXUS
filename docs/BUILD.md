@@ -122,6 +122,9 @@ The portable application is `dist\NexusDeck\NexusDeck.exe`. Copy the **entire**
 NexusDeck folder, including `_internal`, to the destination PC. It does not
 require Python there. User settings remain in LocalAppData and survive replacing
 the app folder. The bundle includes Qt, BLE/WinRT and audio dependencies.
+The original timer chime is already committed as `assets/timer.wav`. To
+regenerate it, run `.\.venv\Scripts\python.exe tools\generate_timer_sound.py`
+before packaging. Timer audio respects Windows master volume and mute.
 
 Install the packaged application from the intended Windows account:
 
@@ -168,7 +171,8 @@ the selected `--data-dir`:
 ```
 
 Optional firmware UI verification compiles the actual LVGL pages for the PC and
-renders both orientations, every settings dropdown and the idle clock:
+runs the native calculator/game/timer/pet tests, then renders both orientations,
+the local apps, every settings dropdown and the idle clock:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install ziglang==0.13.0
@@ -176,7 +180,11 @@ renders both orientations, every settings dropdown and the idle clock:
 ```
 
 This renderer uses explicitly labeled hardware/telemetry fixtures. It verifies
-layout geometry, colors and fonts, and does not access the ESP32 or radio.
+layout geometry, colors, fonts, stylus target sizes and actual LVGL event
+callbacks. It checks notification placement after rotation and across sleep.
+It does not access the ESP32 or radio. Native test output is recorded in
+`test-results/lvgl-preview/local-app-tests.log`; screen output and layout checks
+are in the same directory.
 The generated clock font C sources are already included in the repository;
 firmware builds need no font converter. To regenerate them after changing the
 licensed Montserrat source, run `tools/build_clock_fonts.py`.

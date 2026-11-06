@@ -56,6 +56,17 @@ esp_err_t Storage::load_settings(DeviceSettings& settings) {
 esp_err_t Storage::save_settings(const DeviceSettings& settings) {
     return write_blob("nexus", "settings", &settings, sizeof(settings));
 }
+esp_err_t Storage::load_apps(apps::Preferences& preferences) {
+    apps::Preferences candidate;
+    const esp_err_t result = read_blob("nexus_apps","prefs_v1",&candidate,sizeof(candidate));
+    if (result != ESP_OK) return result;
+    if (!apps::valid_preferences(candidate)) return ESP_ERR_INVALID_STATE;
+    preferences = candidate; return ESP_OK;
+}
+esp_err_t Storage::save_apps(const apps::Preferences& preferences) {
+    if (!apps::valid_preferences(preferences)) return ESP_ERR_INVALID_ARG;
+    return write_blob("nexus_apps","prefs_v1",&preferences,sizeof(preferences));
+}
 esp_err_t Storage::load_profiles(ProfileSet& profiles) {
     nvs_handle_t handle;
     esp_err_t result = nvs_open("nexus", NVS_READONLY, &handle);

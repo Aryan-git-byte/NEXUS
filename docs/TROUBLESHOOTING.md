@@ -1,5 +1,20 @@
 # Troubleshooting
 
+## A timer finishes without PC sound
+
+Check the timer page's speaker toggle and **Connection > Timer sound** in the
+Windows editor. **Test chime** verifies the installed tone. Windows volume/mute
+applies. The companion must be running and the deck must show Connected.
+Disconnected completions are shown locally and are not replayed on reconnect.
+Missing audio uses tray notification and readable feedback.
+
+## Games and cat
+
+Use the arrow buttons with one stylus. Snake pauses when you leave its page.
+Tap Start to resume. A reverse
+turn is deliberately ignored. Tap the cat to pat, or hold it to open its page.
+Follow Off hides only the header cat; Apps > Pixel cat still opens its page.
+
 ## Blank, inverted, or incorrectly colored display
 
 Check module power, ground, its 16-bit interface straps, and the D0–D15 order in

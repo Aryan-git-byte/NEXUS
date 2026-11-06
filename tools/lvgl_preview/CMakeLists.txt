@@ -28,6 +28,9 @@ add_executable(nexus_ui_preview preview.cpp hardware_fixtures.cpp
     "${NEXUS_MAIN}/ui/ui_media.cpp" "${NEXUS_MAIN}/ui/ui_monitor.cpp"
     "${NEXUS_MAIN}/ui/ui_settings.cpp" "${NEXUS_MAIN}/ui/ui_screensaver.cpp"
     "${NEXUS_MAIN}/assets/clock_fonts.c"
+    "${NEXUS_MAIN}/apps/local_apps.cpp" "${NEXUS_MAIN}/ui/ui_apps.cpp"
+    "${NEXUS_MAIN}/ui/ui_calculator.cpp" "${NEXUS_MAIN}/ui/ui_timer.cpp"
+    "${NEXUS_MAIN}/ui/ui_games.cpp" "${NEXUS_MAIN}/ui/ui_pet.cpp"
     "${IDF_PATH}/components/json/cJSON/cJSON.c"
     "${IDF_PATH}/components/mbedtls/mbedtls/library/base64.c"
     "${IDF_PATH}/components/mbedtls/mbedtls/library/constant_time.c")
@@ -37,3 +40,7 @@ target_include_directories(nexus_ui_preview PRIVATE include "${NEXUS_MAIN}"
 target_compile_definitions(nexus_ui_preview PRIVATE MBEDTLS_CONFIG_FILE="nexus_mbedtls.h")
 target_compile_features(nexus_ui_preview PRIVATE cxx_std_17)
 target_link_libraries(nexus_ui_preview PRIVATE lvgl)
+add_executable(nexus_apps_tests "${NEXUS_ROOT}/tests/native/local_apps_test.cpp"
+    "${NEXUS_MAIN}/apps/local_apps.cpp")
+target_include_directories(nexus_apps_tests PRIVATE "${NEXUS_MAIN}")
+target_compile_features(nexus_apps_tests PRIVATE cxx_std_17)

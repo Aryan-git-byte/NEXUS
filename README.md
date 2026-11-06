@@ -3,10 +3,10 @@
 A wireless touchscreen macro controller for Windows 11, with an ESP32-S3,
 ILI9488 parallel TFT, calibrated XPT2046 touch, LVGL 9 and encrypted BLE.
 
-Version **1.1.1** includes the complete ESP-IDF firmware and Windows companion.
-The connected board has been flashed, and the companion has been installed with
-tray startup at sign-in. See [recorded verification](docs/TESTING.md) for build,
-test and physical observations.
+Version **1.2.0** includes the complete ESP-IDF firmware, Windows companion and
+stylus-friendly local apps. The working 1.1.1 hardware baseline is recorded in
+Git; see [verification](docs/TESTING.md) for the current build, installation and
+physical upload status.
 
 ## What is included
 
@@ -21,6 +21,11 @@ test and physical observations.
   shortcuts, app launching, media/audio controls, screenshots and live PC telemetry.
 - Editable Default, Development, Media, Gaming, Productivity and Custom profiles,
   color/animated icon import, tap/long-press actions, ordering and BLE synchronization.
+- An offline Apps hub with a calculator, 2048, Snake, countdown/focus/stopwatch
+  timers and a pixel cat. Games use large tap arrows. The cat follows your pages,
+  reacts to pats, and has saved care settings and high scores.
+- Timer completion chimes and notifications on Windows, with device and companion
+  sound controls. Timers keep running while you navigate or use the clock screen.
 
 CPU/RAM/disk/network readings come from the actual PC. Unsupported GPU,
 temperature, media and battery fields are shown as unavailable. Project and dev
@@ -90,6 +95,7 @@ frames. Imported artwork is synchronized separately from the profile layout.
 - [BLE service, framing and validation](docs/BLUETOOTH_PROTOCOL.md)
 - [Troubleshooting and recovery](docs/TROUBLESHOOTING.md)
 - [Recorded verification and hardware acceptance checks](docs/TESTING.md)
+- [Local apps, games, timers and pixel cat](docs/APPS.md)
 - [Release changes](CHANGELOG.md)
 
 `firmware/` is the ESP-IDF project. `companion/` is the Python application.

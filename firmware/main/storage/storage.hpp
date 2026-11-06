@@ -1,5 +1,6 @@
 #pragma once
 #include "app_model.hpp"
+#include "apps/local_apps.hpp"
 #include "esp_err.h"
 
 namespace nexus {
@@ -9,6 +10,8 @@ public:
     esp_err_t initialize();
     esp_err_t load_settings(DeviceSettings& settings);
     esp_err_t save_settings(const DeviceSettings& settings);
+    esp_err_t load_apps(apps::Preferences& preferences);
+    esp_err_t save_apps(const apps::Preferences& preferences);
     esp_err_t load_profiles(ProfileSet& profiles);
     esp_err_t save_profiles(const char* json);
     esp_err_t load_identity(BondIdentity& identity);

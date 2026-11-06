@@ -3,9 +3,12 @@
 #include "app_model.hpp"
 #include "bluetooth/ble_manager.hpp"
 #include "display/touch_driver.hpp"
+#include "apps/local_apps.hpp"
+#include "ui_apps.hpp"
 
 namespace nexus {
-enum class Page : uint8_t { Home, Development, Media, Monitor, Custom, Settings, Screensaver, Calibration };
+enum class Page : uint8_t { Home, Development, Media, Monitor, Custom, Settings, Screensaver, Calibration,
+                            Apps, Calculator, Timer, Game2048, Snake, Pet };
 class UiManager {
 public:
     UiManager(LcdDriver& lcd, TouchDriver& touch, BleManager& ble, Storage& storage,
@@ -36,6 +39,8 @@ private:
     static void page_event(lv_event_t* event);
     static void confirm_event(lv_event_t* event);
     static void wake_event(lv_event_t* event);
+    static void apps_event(lv_event_t* event);
+    static void pet_event(lv_event_t* event);
     void build(Page page, bool animate = true);
     void build_shell();
     void build_home();
@@ -45,10 +50,33 @@ private:
     void build_settings();
     void build_screensaver();
     void build_calibration();
+    void build_apps();
+    void build_calculator();
+    void build_timer();
+    void build_2048();
+    void build_snake();
+    void build_pet();
+    lv_obj_t* app_button(lv_obj_t* parent, const char* text, AppControl control,
+                         int x, int y, int width, int height);
+    void clear_app_views();
+    void update_apps(uint64_t now);
+    void update_calculator();
+    void update_timer(uint64_t now);
+    void update_2048();
+    void update_snake();
+    void update_pet();
+    void position_pet();
+    void draw_pet(uint64_t now);
+    void open_duration();
+    void close_duration();
+    void update_duration();
+    void local_changed();
     void calibration_tick(const TouchSample& sample);
     void calibration_target();
     void update_values();
     void update_clock();
+    void position_toast();
+    void update_toast(uint64_t now);
     void event(const UiEvent& event);
     void press(ButtonView& view, bool long_press);
     uint8_t profile_for(Category category) const;
@@ -79,5 +107,31 @@ private:
     int raw_x_[3]{}, raw_y_[3]{}, native_x_[3]{56,264,160}, native_y_[3]{72,240,408};
     int cal_sum_x_ = 0, cal_sum_y_ = 0, cal_min_x_ = 4095, cal_max_x_ = 0, cal_min_y_ = 4095, cal_max_y_ = 0;
     uint64_t cal_settle_ = 0;
+    apps::Preferences local_{};
+    apps::Random random_{1};
+    apps::Calculator calculator_;
+    apps::Timer timer_;
+    apps::Game2048 game2048_;
+    apps::Snake snake_;
+    apps::Pet pet_;
+    lv_obj_t *calc_value_ = nullptr, *calc_expression_ = nullptr;
+    lv_obj_t *game_score_ = nullptr, *game_note_ = nullptr;
+    lv_obj_t *game_cells_[16]{}, *game_labels_[16]{};
+    lv_obj_t *snake_image_ = nullptr, *snake_start_ = nullptr, *snake_speed_ = nullptr;
+    lv_obj_t *timer_value_ = nullptr, *timer_status_ = nullptr, *timer_detail_ = nullptr;
+    lv_obj_t *timer_start_ = nullptr, *timer_sound_ = nullptr, *timer_progress_ = nullptr;
+    lv_obj_t *duration_dialog_ = nullptr, *duration_labels_[3]{};
+    uint16_t duration_values_[3]{};
+    lv_obj_t *pet_overlay_ = nullptr, *pet_small_image_ = nullptr, *pet_large_image_ = nullptr;
+    lv_obj_t *pet_mood_ = nullptr, *pet_pats_ = nullptr, *pet_rest_ = nullptr, *pet_visible_ = nullptr;
+    lv_obj_t *pet_stat_labels_[3]{}, *pet_stat_bars_[3]{};
+    lv_image_dsc_t snake_descriptor_{}, pet_descriptor_{};
+    std::array<uint16_t,80 * 64> snake_pixels_{};
+    std::array<uint32_t,24 * 24> pet_pixels_{};
+    uint64_t next_snake_ = 0, next_app_refresh_ = 0, next_pet_frame_ = 0, next_local_save_ = 0;
+    uint64_t local_save_sent_ = 0;
+    uint32_t timer_alert_sequence_ = 0;
+    bool snake_running_ = false, local_dirty_ = false, local_save_pending_ = false, pet_long_sent_ = false;
+    int pet_frame_ = -1;
 };
 }

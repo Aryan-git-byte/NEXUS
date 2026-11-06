@@ -145,6 +145,26 @@ The only value-bearing built-in command is:
 
 It accepts only an integer from 0 through 100 and the exact listed fields.
 
+## Timer completion events
+
+Firmware 1.2.0 advertises `local_apps:true` and `timer_alerts:true` in its encrypted
+descriptor. Local timer completion sends the following through Commands:
+
+```json
+{"type":"timer_alert","kind":"countdown","sequence":14,"session":"0123456789abcdef0123456789abcdef"}
+```
+
+The exact fields shown are required. `kind` can only be `countdown`, `focus` or
+`break`. There are no BLE-supplied file paths, sound parameters or commands.
+The companion uses its installed chime and the user's local sound setting,
+and returns a normal response. Missing audio produces a graceful response and
+tray notification. The event uses normal fragmentation, encryption, pending
+retries and per-session duplicate suppression. New completion events are limited
+to one per half-second; retries return the cached reply without replaying sound.
+Events are discarded on disconnection and are never queued for a later session.
+
+## Response delivery
+
 Replies arrive through Action responses:
 
 ```json

@@ -31,9 +31,15 @@ firmware/sdkconfig.old
 !/test-results/firmware-upload.json
 !/test-results/companion-installed.json
 !/test-results/companion-smoke-test.json
+!/test-results/firmware-build-1.2.0.json
+!/test-results/companion-installed-1.2.0.json
+!/test-results/companion-smoke-1.2.0.json
 !/test-results/python-tests.xml
 !/test-results/lvgl-preview/
 /test-results/lvgl-preview/*
 !/test-results/lvgl-preview/layout-checks.log
+!/test-results/lvgl-preview/local-app-tests.log
+!/test-results/lvgl-preview/apps-contact-landscape.png
+!/test-results/lvgl-preview/apps-contact-portrait.png
 !/test-results/lvgl-preview/clock-landscape.png
 !/test-results/lvgl-preview/clock-portrait.png

@@ -37,6 +37,7 @@ def atomic_json(path: Path, value: Any) -> None:
 class Settings:
     device_address: str = ""
     auto_connect: bool = True
+    timer_sound: bool = True
     active_profile: str = "default"
     telemetry_interval: float = 1.5
     project_directory: str = ""
@@ -60,8 +61,9 @@ class Settings:
             field = getattr(result, key)
             if not isinstance(field, str) or len(field) > 1024 or "\x00" in field:
                 raise ValueError(f"Invalid {key}")
-        if type(result.auto_connect) is not bool:
-            raise ValueError("Invalid auto_connect")
+        for key in ("auto_connect", "timer_sound"):
+            if type(getattr(result, key)) is not bool:
+                raise ValueError(f"Invalid {key}")
         if type(result.telemetry_interval) not in (float, int) or not 1 <= result.telemetry_interval <= 2:
             raise ValueError("Telemetry interval must be 1–2 seconds")
         if result.dev_server_arguments is not None and (
