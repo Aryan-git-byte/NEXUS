@@ -1,9 +1,10 @@
 # Recorded verification: 1.2.0
 
-Recorded on 6 November 2026 with ESP-IDF 5.5.4, LVGL 9.2.2 and 64-bit
-Python 3.11 on Windows 11. The companion is installed and running. Firmware
-1.2.0 is built but has **not** been uploaded: the ESP32's ROM download port and
-BLE advertisements were unavailable during this verification.
+Build and software checks were recorded on 6 November 2026 with ESP-IDF 5.5.4,
+LVGL 9.2.2 and 64-bit Python 3.11 on Windows 11. Firmware 1.2.0 was uploaded
+on 7 November 2026. All three image hashes verified, the device booted, and
+the installed companion established an encrypted BLE session and synchronized
+six profiles and five artwork assets.
 
 ## Firmware build
 
@@ -23,7 +24,9 @@ The application is 1,081,136 bytes. SHA-256:
 ```
 
 `test-results/firmware-build-1.2.0.json` records the image hashes and validated
-flash plan. The original LCD/touch pin configuration, display initialization,
+flash plan from 6 November, before upload. The current hardware upload result
+is in `test-results/firmware-upload-1.2.0.json`.
+The original LCD/touch pin configuration, display initialization,
 RGB565 transport and calibration storage are unchanged. The new app preferences
 use a separate `nexus_apps/prefs_v1` record. Compiling does not verify physical
 touch, rendering, radio operation or persistence on the board.
@@ -99,17 +102,43 @@ The Windows `PlaySound` API accepted the chime. This establishes successful API
 invocation; it does not establish that a person heard it or that a physical
 timer event reached Windows over BLE.
 
-## Physical status and remaining acceptance
+## Physical upload, boot and reconnection
 
-The installed 1.2.0 companion starts normally and keeps attempting reconnection.
-Its runtime log currently reports `Deck not found; power it on and enable Bluetooth`.
-The available serial ports were COM1 and Bluetooth serial links, with no ESP32
-USB download port. No writes were attempted to those unrelated ports.
+On 7 November, COM17 appeared as the ESP32-S3 USB Serial/JTAG device.
+Esptool identified the actual ESP32-S3 rev v0.2 with 8 MB embedded PSRAM.
+The helper backed up 6,684,672 bytes, verified the backup against the partition
+table, and validated the unchanged flash layout before writing. The NVS,
+PHY and icon-store regions were outside every write/erase range, retaining
+calibration, settings, pairing and existing artwork.
 
-The user was notified that BOOT/RESET is needed to expose the upload port.
-Physical boot, touch, calibration persistence, game input, timer-to-PC audio and
-encrypted reconnection with firmware 1.2.0 remain unverified until it is flashed
-and exercised. The working 1.1.1 image remains the last verified upload.
+The bootloader, partition table and 1,081,136-byte application were written.
+Each of the three images reported `Hash of data verified`. Selected upload output:
+
+```text
+Migration validated. Touch calibration/NVS preserved.
+Wrote 1081136 bytes (630831 compressed) at 0x00060000 in 8.6 seconds (effective 1007.7 kbit/s)...
+Hash of data verified.
+Upload and hash verification succeeded. USB may disappear when the LCD takes GPIO19/20.
+```
+
+After reset, the installed companion reported the new version and completed
+profile/artwork synchronization. Selected log messages, with logger names and
+milliseconds omitted:
+
+```text
+2026-11-07 12:20:33 INFO Encrypted BLE session established with firmware 1.2.0
+2026-11-07 12:20:40 INFO Profiles synchronized: 6 profiles, 5 artwork assets
+```
+
+This verifies physical firmware boot, BLE operation, encrypted reconnection
+and profile/artwork synchronization. The public summary is
+`test-results/firmware-upload-1.2.0.json`; complete flash backups, bond data
+and raw logs remain private and ignored by Git.
+
+A physical visual/touch audit, calibration accuracy after power loss, game
+input and timer-to-PC sound triggered from the actual deck have not been
+performed by the agent. Host tests and the accepted Windows audio API call
+remain distinct from those physical observations.
 
 The [1.1.1 baseline record](TESTING_1.1.1.md) documents the previous successful
 COM17 upload, user-confirmed interface and black clock, encrypted handshake,

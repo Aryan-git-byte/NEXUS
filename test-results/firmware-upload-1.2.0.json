@@ -1,0 +1,22 @@
+{
+  "firmware": "1.2.0",
+  "flashed": true,
+  "hash_verified": true,
+  "images": 3,
+  "port": "COM17",
+  "application_bytes": 1081136,
+  "application_sha256": "2fd5237e7c883bfcada80fa0c4a0e15e211dd4fe6dd587b12b35a1e17000afa6",
+  "backup_bytes": 6684672,
+  "partition_layout_unchanged": true,
+  "nvs_preserved": true,
+  "phy_preserved": true,
+  "icon_store_preserved": true,
+  "physical_boot_verified_via_ble": true,
+  "ble_encrypted": true,
+  "profiles_synchronized": 6,
+  "artwork_assets_synchronized": 5,
+  "display_touch_verified": false,
+  "physical_game_timer_audio_tested": false,
+  "ble_session_observed_at": "2026-11-07T12:20:33.179+05:30",
+  "observed_at": "2026-11-07T12:22:01.358454+05:30"
+}

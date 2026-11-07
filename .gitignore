@@ -29,6 +29,7 @@ firmware/sdkconfig.old
 /sdkconfig.esp32s3
 /test-results/*
 !/test-results/firmware-upload.json
+!/test-results/firmware-upload-1.2.0.json
 !/test-results/companion-installed.json
 !/test-results/companion-smoke-test.json
 !/test-results/firmware-build-1.2.0.json
