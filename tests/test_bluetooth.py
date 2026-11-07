@@ -111,6 +111,117 @@ def test_connection_refreshes_attributes_and_reports_timeouts(monkeypatch, saved
     asyncio.run(scenario())
 
 
+def test_live_disconnect_updates_the_state_without_waiting_for_a_connect_error(monkeypatch, caplog):
+    async def scenario():
+        central = manager()
+        central.enabled = True
+        central._find_device = AsyncMock(return_value=SimpleNamespace(address="AA:BB:CC:DD:EE:FF"))
+        central._initial_status = AsyncMock(return_value={"name": "NEXUS DECK", "protocol": 1, "firmware": "1.3.1"})
+        central._request = AsyncMock(return_value={"type": "hello_ack", "status": "success"})
+        peer = SimpleNamespace(connect=AsyncMock(), disconnect=AsyncMock(), start_notify=AsyncMock(),
+            services=SimpleNamespace(get_characteristic=Mock(return_value=object())))
+        monkeypatch.setattr(bluetooth, "BleakClient", Mock(return_value=peer))
+        async def synchronized(*_):
+            central.ready = True
+            central.disconnected.set()
+        central.synchronize = synchronized
+        async def wait_forever():
+            await asyncio.Event().wait()
+        central._command_loop = central._telemetry_loop = wait_forever
+        states = []
+        def record(kind, detail):
+            states.append((kind, detail))
+            if kind == "disconnected":
+                central.running = False
+        central.on_state = record
+        with caplog.at_level("INFO", logger="companion.bluetooth"):
+            await central.run()
+        assert states[-1] == ("disconnected", "Bluetooth link lost; reconnecting")
+        assert "BLE link lost; reconnecting" in caplog.text
+        peer.disconnect.assert_awaited_once()
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("intentional", ["quit", "disconnect"])
+def test_intentional_stop_is_not_logged_as_an_unexpected_radio_drop(monkeypatch, caplog, intentional):
+    async def scenario():
+        central = manager()
+        central.enabled = True
+        central._find_device = AsyncMock(return_value=SimpleNamespace(address="AA:BB:CC:DD:EE:FF"))
+        central._initial_status = AsyncMock(return_value={"name": "NEXUS DECK", "protocol": 1})
+        central._request = AsyncMock(return_value={"type": "hello_ack", "status": "success"})
+        peer = SimpleNamespace(connect=AsyncMock(), disconnect=AsyncMock(), start_notify=AsyncMock(),
+            services=SimpleNamespace(get_characteristic=Mock(return_value=object())))
+        monkeypatch.setattr(bluetooth, "BleakClient", Mock(return_value=peer))
+        async def synchronized(*_):
+            central.ready = True
+            if intentional == "quit":
+                central.running = False
+            else:
+                central.enabled = False
+            central.disconnected.set()
+        central.synchronize = synchronized
+        async def wait_forever():
+            await asyncio.Event().wait()
+        central._command_loop = central._telemetry_loop = wait_forever
+        states = []
+        def record(kind, detail):
+            states.append((kind, detail))
+            if kind == "disconnected":
+                central.running = False
+                central.wake.set()
+        central.on_state = record
+        with caplog.at_level("INFO", logger="companion.bluetooth"):
+            await asyncio.wait_for(central.run(), 2.0)
+        assert not any(detail == "Bluetooth link lost; reconnecting" for _, detail in states)
+        assert "BLE link lost; reconnecting" not in caplog.text
+        assert central.client is None and not central.ready
+        peer.disconnect.assert_awaited_once()
+    asyncio.run(scenario())
+
+
+def test_late_windows_close_event_does_not_disconnect_the_replacement_client(monkeypatch):
+    async def scenario():
+        central = manager()
+        central.enabled = True
+        central._find_device = AsyncMock(return_value=SimpleNamespace(address="AA:BB:CC:DD:EE:FF"))
+        central._initial_status = AsyncMock(return_value={"name": "NEXUS DECK", "protocol": 1})
+        central._request = AsyncMock(return_value={"type": "hello_ack", "status": "success"})
+        def peer(error=None):
+            return SimpleNamespace(connect=AsyncMock(side_effect=error), disconnect=AsyncMock(), start_notify=AsyncMock(),
+                services=SimpleNamespace(get_characteristic=Mock(return_value=object())))
+        first, second = peer(asyncio.TimeoutError()), peer()
+        callbacks = []
+        def create(*_args, **kwargs):
+            callbacks.append(kwargs["disconnected_callback"])
+            return first if len(callbacks) == 1 else second
+        monkeypatch.setattr(bluetooth, "BleakClient", create)
+        async def synchronized(*_args):
+            central.ready = True
+            current_session = central.session
+            callbacks[0](first)
+            await asyncio.sleep(0)
+            assert not central.disconnected.is_set()
+            assert central.client is second and central.ready and central.session == current_session
+            callbacks[1](second)
+            await asyncio.sleep(0)
+            assert central.disconnected.is_set()
+        central.synchronize = synchronized
+        async def wait_forever():
+            await asyncio.Event().wait()
+        central._command_loop = central._telemetry_loop = wait_forever
+        def state(_kind, detail):
+            central.wake.set()
+            if detail == "Bluetooth link lost; reconnecting":
+                central.running = False
+        central.on_state = state
+        await asyncio.wait_for(central.run(), 3.0)
+        first.disconnect.assert_awaited_once()
+        second.disconnect.assert_awaited_once()
+        assert central.client is None and not central.ready
+    asyncio.run(scenario())
+
+
 def test_ack_retry_preserves_sequence_and_reassembles_at_minimum_mtu():
     async def scenario():
         central = manager()

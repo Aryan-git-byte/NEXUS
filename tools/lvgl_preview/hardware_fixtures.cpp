@@ -1,6 +1,7 @@
 // Hardware test doubles used only by the headless LVGL renderer. The firmware
 // build uses the real GPIO, touch, NVS, FreeRTOS and NimBLE implementations.
 #include "ui/ui_manager.hpp"
+#include "diagnostics/boot_info.hpp"
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -23,6 +24,9 @@ int xQueueReceive(QueueHandle_t,void*,unsigned) { return pdFALSE; }
 void vTaskDelay(unsigned milliseconds) { std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds)); }
 
 namespace nexus {
+const BootInfo& boot_info() {
+    static const BootInfo fixture{0,"unknown"}; return fixture;
+}
 OtaManager::~OtaManager() {}
 bool OtaManager::supported() { return true; }
 esp_err_t LcdDriver::attach_lvgl(Orientation orientation) {

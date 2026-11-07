@@ -1,4 +1,5 @@
 #include "ble_manager.hpp"
+#include "diagnostics/boot_info.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -91,12 +92,14 @@ int BleManager::access(uint16_t connection, uint16_t, ble_gatt_access_ctxt* cont
     const auto channel = static_cast<Channel>(reinterpret_cast<uintptr_t>(arg));
     if (connection != self.connection_ || !self.encrypted_) return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
     if (context->op == BLE_GATT_ACCESS_OP_READ_CHR) {
-        char status[512], elf[65]; OtaManager::elf_digest(elf,sizeof(elf));
+        char status[512], elf[65], boot_id[9]; OtaManager::elf_digest(elf,sizeof(elf));
+        const auto& boot = boot_info();
+        std::snprintf(boot_id,sizeof(boot_id),"%08x",static_cast<unsigned>(boot.id));
         const int count = std::snprintf(status, sizeof(status),
-            "{\"name\":\"NEXUS DECK\",\"firmware\":\"%s\",\"protocol\":1,\"icon_assets\":true,\"local_apps\":true,\"timer_alerts\":true,\"max_message\":49152,\"ready\":%s,\"mtu\":%u,\"ota\":%s,\"ota_confirmed\":%s,\"slot\":\"%s\",\"elf_sha256\":\"%s\"}",
+            "{\"name\":\"NEXUS DECK\",\"firmware\":\"%s\",\"protocol\":1,\"icon_assets\":true,\"local_apps\":true,\"timer_alerts\":true,\"max_message\":49152,\"ready\":%s,\"mtu\":%u,\"ota\":%s,\"ota_confirmed\":%s,\"slot\":\"%s\",\"elf_sha256\":\"%s\",\"boot_id\":\"%s\",\"reset_reason\":\"%s\",\"uptime_ms\":%llu}",
             config::kVersion, self.ready_ ? "true" : "false", ble_att_mtu(connection),
             OtaManager::supported() ? "true" : "false", OtaManager::boot_confirmed() ? "true" : "false",
-            OtaManager::running_slot(),elf);
+            OtaManager::running_slot(),elf,boot_id,boot.reset_reason,static_cast<unsigned long long>(now_ms()));
         if (count < 0 || static_cast<size_t>(count) >= sizeof(status)) return BLE_ATT_ERR_UNLIKELY;
         return os_mbuf_append(context->om, status, count) == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
     }

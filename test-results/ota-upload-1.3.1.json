@@ -1,0 +1,45 @@
+{
+  "success": false,
+  "attempted_version": "1.3.1",
+  "application_bytes": 1100704,
+  "application_sha256": "f92b5112d2d2dd829d4ea9d6f6688097fb7f13d536fcade0bc2441c8e10cd507",
+  "failure_phase": "transfer",
+  "completion_request_started": false,
+  "last_logged_progress_percent": 5,
+  "last_logged_acknowledged_bytes": 58368,
+  "exact_final_acknowledged_byte_count_recorded": false,
+  "diagnostic_firmware_installed": false,
+  "error_type": "TimeoutError with Bluetooth link loss",
+  "selected_image_after_attempt": {
+    "firmware": "1.3.0",
+    "slot": "ota_0",
+    "elf_sha256": "da2a031666f52850a1755aec3ce6e5cde549af7ecd2cfccba1781ead988b0b8d",
+    "ota_confirmed": true
+  },
+  "protected_read_probe": {
+    "matching_advertisements": 1,
+    "att_mtu": 247,
+    "successful_periodic_status_reads": 17,
+    "outcome": "A later protected status read timed out"
+  },
+  "reset_cause_captured": false,
+  "user_reported_screen_blank_and_dashboard_reload": true,
+  "user_reported_power_source": "Single raw 18650 cell connected to carrier VBAT",
+  "usb_power_comparison_performed": false,
+  "usb_recovery_performed": false,
+  "hardware_access_limitation": "Enclosure blocks BOOT/RESET and the USB power socket",
+  "observed_at": "2026-11-07T09:56:58.447941+00:00",
+  "paced_retry": {
+    "success": false,
+    "failure_phase": "transfer",
+    "completion_request_started": false,
+    "packet_gap_ms": 20,
+    "chunk_gap_ms": 150,
+    "acknowledged_bytes": 211584,
+    "last_logged_progress_percent": 15,
+    "error": "Bluetooth operation timed out with link loss",
+    "diagnostic_firmware_installed": false,
+    "reset_cause_captured": false,
+    "observed_at": "2026-11-07T10:25:25.053077+00:00"
+  }
+}

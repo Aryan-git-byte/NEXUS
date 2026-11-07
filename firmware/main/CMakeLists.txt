@@ -3,7 +3,7 @@ idf_component_register(
          "display/lcd_driver.cpp" "display/touch_driver.cpp"
          "assets/icon_data.cpp" "assets/clock_fonts.c" "ui/ui_icon.cpp"
          "bluetooth/ble_protocol.cpp" "bluetooth/ble_manager.cpp"
-         "storage/storage.cpp" "update/ota_manager.cpp"
+         "storage/storage.cpp" "update/ota_manager.cpp" "diagnostics/boot_info.cpp"
          "apps/local_apps.cpp" "ui/ui_apps.cpp" "ui/ui_calculator.cpp"
          "ui/ui_timer.cpp" "ui/ui_games.cpp" "ui/ui_pet.cpp"
          "ui/ui_manager.cpp" "ui/ui_styles.cpp" "ui/ui_home.cpp"

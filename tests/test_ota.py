@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pytest
 from bleak.exc import BleakError
 
-from companion.bluetooth import BluetoothManager
+from companion.bluetooth import BluetoothManager, RequestRejected
 from companion.firmware import FirmwareError, FirmwareImage
 from companion.protocol import (FIRMWARE_UUID, STATUS_UUID, Reassembler,
                                 decode_json, encode_json, fragment)
@@ -81,6 +81,10 @@ class OtaPeer:
             self.central.session = "b" * 32
             self.is_connected = True
             self.central.ready = True
+
+    async def disconnect(self):
+        self.is_connected = False
+        self.central.ready = False
 
     async def read_gatt_char(self, channel):
         assert channel == STATUS_UUID
@@ -173,4 +177,87 @@ def test_update_preconditions_prevent_all_radio_writes(firmware_blob, unavailabl
         with pytest.raises(FirmwareError):
             await central.upload_firmware(peer.image, Mock())
         assert peer.messages == [] and peer.packet_count == 0
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("phase", ["ota_begin", "ota_chunk"])
+def test_transfer_timeout_reports_acknowledged_bytes_and_retains_current_image(firmware_blob, phase):
+    async def scenario():
+        central, peer = connected(FirmwareImage.parse(firmware_blob))
+        request = central._request
+        async def interrupted(channel, message, expected, timeout=12.0):
+            if message["type"] == phase:
+                raise asyncio.TimeoutError()
+            return await request(channel, message, expected, timeout)
+        central._request = interrupted
+        with pytest.raises(FirmwareError, match="0 / .*bytes: Bluetooth operation timed out") as raised:
+            await central.upload_firmware(peer.image, Mock())
+        assert "current firmware remains selected" in str(raised.value)
+        assert peer.reboot_task is None and not central.update_committed
+        assert not central.updating and not central.update_finishing
+    asyncio.run(scenario())
+
+
+def test_lost_completion_ack_still_requires_verified_new_boot(firmware_blob):
+    async def scenario():
+        central, peer = connected(FirmwareImage.parse(firmware_blob))
+        request = central._request
+        async def missing_completion(channel, message, expected, timeout=12.0):
+            result = await request(channel, message, expected, timeout)
+            if message["type"] == "ota_end":
+                raise asyncio.TimeoutError()
+            return result
+        central._request = missing_completion
+        result = await asyncio.wait_for(central.upload_firmware(peer.image, Mock()), 5.0)
+        assert result["boot_confirmed"] is True and result["slot"] == "ota_0"
+        assert peer.abort_count == 0 and central.update_committed
+        assert not central.pending and not central.update_finishing
+    asyncio.run(scenario())
+
+
+def test_completion_rejection_aborts_instead_of_claiming_a_commit(firmware_blob):
+    async def scenario():
+        central, peer = connected(FirmwareImage.parse(firmware_blob))
+        request = central._request
+        async def rejected(channel, message, expected, timeout=12.0):
+            if message["type"] == "ota_end":
+                raise RequestRejected("Firmware checksum did not match")
+            return await request(channel, message, expected, timeout)
+        central._request = rejected
+        with pytest.raises(FirmwareError, match="checksum did not match"):
+            await central.upload_firmware(peer.image, Mock())
+        assert peer.abort_count == 1 and peer.reboot_task is None
+        assert not central.update_committed and not central.update_finishing
+    asyncio.run(scenario())
+
+
+def test_interrupted_commit_does_not_promise_original_image_was_retained(firmware_blob):
+    async def scenario():
+        central, peer = connected(FirmwareImage.parse(firmware_blob))
+        request = central._request
+        async def interrupted(channel, message, expected, timeout=12.0):
+            if message["type"] == "ota_end":
+                assert central.update_finishing
+                central.cancel_firmware_update()
+                assert not asyncio.current_task().cancelling()
+                raise asyncio.CancelledError()
+            return await request(channel, message, expected, timeout)
+        central._request = interrupted
+        with pytest.raises(FirmwareError, match="check which image is running") as raised:
+            await central.upload_firmware(peer.image, Mock())
+        assert "retained" not in str(raised.value) and peer.abort_count == 0
+        assert not central.updating and not central.update_finishing
+    asyncio.run(scenario())
+
+
+def test_reboot_status_timeout_has_readable_feedback_without_retention_claim(firmware_blob):
+    async def scenario():
+        central, peer = connected(FirmwareImage.parse(firmware_blob))
+        async def unavailable(_channel):
+            raise asyncio.TimeoutError()
+        peer.read_gatt_char = unavailable
+        with pytest.raises(FirmwareError, match="reboot verification failed: Bluetooth operation timed out") as raised:
+            await asyncio.wait_for(central.upload_firmware(peer.image, Mock()), 5.0)
+        assert "remains selected" not in str(raised.value) and peer.abort_count == 0
+        assert central.update_committed and not central.update_finishing
     asyncio.run(scenario())

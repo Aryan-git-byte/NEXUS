@@ -89,6 +89,39 @@ Run one BLE central at a time. Quit the tray companion before using
 `tools/upload_firmware.py` or another connection diagnostic, then restart it
 afterward. Advertising normally pauses while a central is connected.
 
+## Screen blanks and dashboard reloads during Bluetooth
+
+A blank screen followed by a freshly loaded dashboard suggests a device reset;
+a connection icon changing while the same page remains responsive suggests a
+link/session problem. A reconnect also triggers profile sync and rebuilds the
+current page, which can resemble a restart when Home was already open. Screen
+appearance alone is not proof of an MCU reset. Firmware 1.3.1 reports **Last reset** under Setup > Device
+and in the Windows Firmware window. An encrypted handshake records boot ID,
+reset cause and reported uptime in `companion.log`. These diagnostics require
+that firmware on the actual deck; a newer Windows app alone cannot read them
+from 1.3.0.
+
+`brownout` or `power_glitch` points to power integrity, `panic` to a firmware
+crash, and a watchdog classification to a stalled task/interrupt. A power-on
+cause may also follow a complete supply interruption. Do not infer one of
+these causes from a Bluetooth timeout or disable brownout/watchdog protection
+to conceal the symptom.
+
+The identified Waveshare carrier already converts VBAT to 3.3 V through
+AO3401 Q1 and TMI3112H U7. One raw 3.7 V nominal 18650 on VBAT is the intended
+power arrangement. Check charge, cell condition, protection circuit and wiring
+resistance, plus how the external TFT/backlight is powered. When accessible,
+compare against USB power with its data conductors isolated: GPIO19/20 belong
+to the external parallel display, so a normal data connection is not a clean
+power-only comparison. A stable USB test implicates the battery power path;
+resets on both supplies still require rail/reset-cause evidence.
+
+Measure the 3V3 rail during the event when hardware access is available; an
+oscilloscope can catch dips that a multimeter averages away. The current
+software brightness overlay does not reduce backlight current. Stop repeated
+OTA attempts while unexpected resets continue. The uncommitted writer uses
+an inactive slot and does not select its partially transferred image.
+
 ## Wireless upload fails, is cancelled, or needs recovery
 
 Choose the application `nexus_deck.bin` from the current firmware build. A merged

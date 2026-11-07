@@ -231,6 +231,9 @@ public:
                     lv_dropdown_close(dropdowns[d]);
                 }
                 std::printf("%s: four separate settings controls and expanded lists rendered\n",suffix.c_str());
+                auto* device_section = lv_obj_get_child(ui.content_,-1);
+                lv_obj_scroll_to_view_recursive(lv_obj_get_child(device_section,1),LV_ANIM_OFF);
+                save(directory / ("device-info-" + suffix + ".ppm"),ui.lcd_);
             }
             local_interactions(ui,directory,suffix);
             firmware_interactions(ui,directory,suffix);

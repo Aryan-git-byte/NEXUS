@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (QDialog, QFileDialog, QFormLayout, QHBoxLayout,
                                QLabel, QProgressBar, QPushButton, QVBoxLayout)
 
 from .firmware import FirmwareImage
+from .diagnostics import BootDiagnostics
 
 
 class FirmwareDialog(QDialog):
@@ -79,8 +80,12 @@ class FirmwareDialog(QDialog):
     def _refresh(self, *_args) -> None:
         info = self.controller.device_info
         connected = self.controller.connection_state == "connected"
-        self.device.setText(f"Deck firmware {info.get('firmware', 'unknown')} · {info.get('slot', 'unknown slot')}"
-                            if info else "Deck disconnected")
+        device_text = (f"Deck firmware {info.get('firmware', 'unknown')} · {info.get('slot', 'unknown slot')}"
+                       if info else "Deck disconnected")
+        boot = BootDiagnostics.parse(info)
+        if boot is not None:
+            device_text += "\n" + boot.summary()
+        self.device.setText(device_text)
         available = connected and info.get("ota") is True and info.get("ota_confirmed") is True
         self.upload.setEnabled(bool(self.image and available and not self.busy))
         if self.busy:

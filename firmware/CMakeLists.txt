@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-set(PROJECT_VER "1.3.0")
+set(PROJECT_VER "1.3.1")
 set(COMPONENTS main)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 if(NEXUS_UNIVERSAL_XTENSA)

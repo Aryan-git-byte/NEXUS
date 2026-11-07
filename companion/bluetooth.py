@@ -25,8 +25,13 @@ from .settings import Settings
 from .icons import profile_assets
 from .alerts import TIMER_ALERTS
 from .firmware import FirmwareError, FirmwareImage
+from .diagnostics import BootDiagnostics
 
 log = logging.getLogger(__name__)
+
+
+class RequestRejected(BleakError):
+    """A complete authenticated acknowledgement explicitly rejected a request."""
 
 
 class CommandDispatcher:
@@ -122,6 +127,7 @@ class BluetoothManager:
         self.device_info: dict[str, Any] = {}
         self.updating = False
         self.update_committed = False
+        self.update_finishing = False
         self.update_task: asyncio.Task | None = None
         self.update_lock = asyncio.Lock()
         self.icon_assets_supported = False
@@ -149,6 +155,12 @@ class BluetoothManager:
         self.device_info = dict(info)
         if self.on_device:
             self.on_device(dict(info))
+
+    def _disconnected_client(self, client: BleakClient) -> None:
+        # Windows can deliver a queued CLOSED event after a replacement
+        # client has connected. Only the current client owns this session.
+        if client is self.client:
+            self.disconnected.set()
 
     def _next_sequence(self) -> int:
         self.sequence = self.sequence % 0xFFFFFFFF + 1
@@ -265,8 +277,10 @@ class BluetoothManager:
                 except asyncio.TimeoutError:
                     if attempt == 2:
                         raise BleakError("Deck did not acknowledge the request") from None
-            if reply.get("type") != expected or reply.get("status") != "success":
-                raise BleakError(reply.get("message", "Deck rejected request"))
+            if reply.get("type") != expected:
+                raise ProtocolError("The deck returned an unexpected acknowledgement type")
+            if reply.get("status") != "success":
+                raise RequestRejected(reply.get("message", "Deck rejected request"))
             return reply
         finally:
             self.pending.pop(seq, None)
@@ -329,7 +343,7 @@ class BluetoothManager:
                 self.command_queue.task_done()
 
     def cancel_firmware_update(self) -> None:
-        if self.update_task and not self.update_committed:
+        if self.update_task and not self.update_committed and not self.update_finishing:
             self.update_task.cancel()
 
     async def upload_firmware(self, image: FirmwareImage,
@@ -345,9 +359,11 @@ class BluetoothManager:
                 raise FirmwareError("Wait for the current firmware to finish boot validation before updating")
             self.update_task = asyncio.current_task()
             self.updating, self.update_committed = True, False
+            self.update_finishing = False
             transfer, session = uuid.uuid4().hex, self.session
             started = False
             destination = ""
+            received = 0
             def message(kind: str, **values) -> dict[str, Any]:
                 return {"type": kind, "sequence": self._next_sequence(), "session": session,
                         "transfer": transfer, **values}
@@ -364,31 +380,44 @@ class BluetoothManager:
                     block_size = min(maximum, max(512, (att - 16) * 16))
                     for offset in range(0, len(image.data), block_size):
                         if self.session != session or not self.client or not self.client.is_connected:
-                            raise BleakError("The firmware transfer disconnected; current firmware is retained")
+                            raise BleakError("Bluetooth link lost")
                         block = image.data[offset:offset + block_size]
                         response = await self._request(FIRMWARE_UUID, message("ota_chunk", offset=offset,
                             data=base64.b64encode(block).decode("ascii")), "ota_ack", timeout=30.0)
-                        received = offset + len(block)
-                        if type(response.get("offset")) is not int or response["offset"] != received:
+                        acknowledged = offset + len(block)
+                        if type(response.get("offset")) is not int or response["offset"] != acknowledged:
                             raise FirmwareError("The deck acknowledged an unexpected firmware offset")
+                        received = acknowledged
                         progress(min(95, int(received * 95 / len(image.data))),
                                  f"Uploading {received:,} / {len(image.data):,} bytes")
                     progress(96, "Verifying the complete firmware image")
+                    # Once ota_end can reach the peripheral, its boot metadata
+                    # may change even if Windows loses the acknowledgement.
+                    self.update_finishing = True
                     try:
                         response = await self._request(FIRMWARE_UUID, message("ota_end"), "ota_ack", timeout=30.0)
                         if response.get("restarting") is not True or response.get("slot") != destination:
                             raise FirmwareError("The deck did not commit the verified firmware")
-                    except BleakError:
+                    except RequestRejected:
+                        self.update_finishing = False
+                        raise
+                    except (BleakError, asyncio.TimeoutError) as exc:
+                        log.warning("Final firmware acknowledgement was lost (%s); checking the boot identity",
+                                    str(exc).strip() or type(exc).__name__)
                         if self.client and self.client.is_connected:
-                            raise
-                        # A reboot can close GATT before the final acknowledgement arrives.
+                            try:
+                                await asyncio.wait_for(self.client.disconnect(), 5.0)
+                            except Exception:
+                                pass
+                        # Verify a fresh connection rather than infer success
+                        # or retention from a missing final acknowledgement.
                     self.update_committed = True
                 progress(97, "Waiting for the deck to restart and reconnect")
                 deadline = time.monotonic() + 150.0
                 self.wake.set()
                 while time.monotonic() < deadline:
                     if self.ready and self.session != session and self.client and self.client.is_connected:
-                        info = decode_json(bytes(await self.client.read_gatt_char(STATUS_UUID)))
+                        info = decode_json(bytes(await asyncio.wait_for(self.client.read_gatt_char(STATUS_UUID), 5.0)))
                         self._set_device_info(info)
                         if info.get("slot") != destination or info.get("firmware") != image.version or info.get("elf_sha256") != image.elf_sha256:
                             raise FirmwareError("The deck returned to another firmware image; the update was not confirmed")
@@ -401,13 +430,24 @@ class BluetoothManager:
                         progress(99, "Checking the new firmware's display and Bluetooth tasks")
                     await asyncio.sleep(1.0)
                 raise FirmwareError("Firmware was uploaded, but a confirmed reboot was not observed. Reconnect the deck to check its status.")
+            except asyncio.CancelledError:
+                if self.update_finishing:
+                    raise FirmwareError("Firmware verification was interrupted. Reconnect the deck to check which image is running.") from None
+                raise
+            except (BleakError, asyncio.TimeoutError) as exc:
+                detail = str(exc).strip() or ("Bluetooth operation timed out"
+                    if isinstance(exc, asyncio.TimeoutError) else f"Bluetooth error ({type(exc).__name__})")
+                if self.update_finishing:
+                    raise FirmwareError(f"Firmware reboot verification failed: {detail}. Reconnect the deck to check which image is running.") from exc
+                raise FirmwareError(f"Firmware transfer stopped after {received:,} / {len(image.data):,} bytes: {detail}. The current firmware remains selected.") from exc
             finally:
-                if started and not self.update_committed and self.session == session and self.client and self.client.is_connected:
+                if started and not self.update_finishing and not self.update_committed and self.session == session and self.client and self.client.is_connected:
                     try:
                         await asyncio.shield(self._request(FIRMWARE_UUID, message("ota_abort"), "ota_ack", timeout=2.0))
                     except (Exception, asyncio.CancelledError):
                         pass
                 self.updating = False
+                self.update_finishing = False
                 self.update_task = None
 
     async def _telemetry_loop(self) -> None:
@@ -424,7 +464,7 @@ class BluetoothManager:
                     await self._write(TELEMETRY_UUID, message)
                     last_sent, last_signature = time.monotonic(), signature
                 if self.device_info.get("ota") is True and self.device_info.get("ota_confirmed") is not True and time.monotonic() - last_boot_check >= 2.0:
-                    status = decode_json(bytes(await self.client.read_gatt_char(STATUS_UUID)))
+                    status = decode_json(bytes(await asyncio.wait_for(self.client.read_gatt_char(STATUS_UUID), 5.0)))
                     self._set_device_info(status)
                     last_boot_check = time.monotonic()
             await asyncio.sleep(self.settings.telemetry_interval)
@@ -473,7 +513,7 @@ class BluetoothManager:
                                        "nexus_paired_address": isinstance(device, str)}
                 self.client = BleakClient(device, timeout=75.0, pair=True,
                                           services={SERVICE_UUID},
-                                          disconnected_callback=lambda _: loop.call_soon_threadsafe(self.disconnected.set),
+                                          disconnected_callback=lambda client: loop.call_soon_threadsafe(self._disconnected_client, client),
                                           winrt={"use_cached_services": False}, **pairing_options)
                 await self.client.connect()
                 for characteristic in (COMMAND_UUID, TELEMETRY_UUID, RESPONSE_UUID, PROFILE_UUID, STATUS_UUID):
@@ -499,6 +539,9 @@ class BluetoothManager:
                          "epoch": int(time.time()), "utc_offset": self.latest_telemetry.get("utc_offset", 0)}
                 await self._request(STATUS_UUID, hello, "hello_ack")
                 log.info("Encrypted BLE session established with firmware %s", status.get("firmware", "unknown"))
+                boot = BootDiagnostics.parse(status)
+                if boot is not None:
+                    log.info("Device boot: id=%s, reset=%s, uptime_ms=%d", boot.boot_id, boot.reason, boot.uptime_ms)
                 self.on_address(device if isinstance(device, str) else device.address)
                 await self.synchronize(self.saved_profiles, self.active)
                 backoff = 2.0
@@ -508,6 +551,9 @@ class BluetoothManager:
                 for task in done:
                     if not task.cancelled() and task.exception():
                         raise task.exception()
+                if self.disconnected.is_set() and self.running and self.enabled:
+                    self.on_state("disconnected", "Bluetooth link lost; reconnecting")
+                    log.info("BLE link lost; reconnecting")
             except asyncio.CancelledError:
                 break
             except Exception as exc:

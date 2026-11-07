@@ -1,0 +1,3 @@
+Reset reason classification: all ESP-IDF 5.5 causes passed
+Boot identity stability: 1000 reads passed
+2 native boot-diagnostic groups passed

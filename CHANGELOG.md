@@ -1,5 +1,25 @@
 # Changes
 
+## 1.3.1 — 7 November 2026
+
+- Actual ESP-IDF reset cause, boot identity and monotonic uptime in the encrypted
+  device descriptor, so reconnects can be distinguished from MCU restarts.
+- Last reset shown under Setup > Device and in the Windows Firmware window.
+  Diagnostics use a fixed boot snapshot and do not write additional NVS records.
+- Authenticated session logs record the boot identity/cause/uptime. Lost live
+  links update the editor/tray state immediately and are explicitly logged.
+  Intentional Quit/Disconnect operations do not generate a false radio-fault log.
+- Late Windows disconnect callbacks from an old client cannot invalidate a
+  replacement connection; the queued-event race is covered by a reconnect test.
+- Reboot verification and boot-confirmation status reads have a bounded timeout.
+- OTA timeouts include the last acknowledged byte count. A missing completion
+  acknowledgement triggers fresh boot verification; errors after completion
+  never promise that the original image remains selected.
+- Battery-power guidance for the verified Waveshare board schematic, including
+  the VBAT power path and external-display pin conflicts.
+- Native reset-cause/boot-identity checks, malformed diagnostic validation and
+  Qt reset-feedback regression coverage.
+
 ## 1.3.0 — 7 November 2026
 
 - Firmware uploads over the existing authenticated BLE connection, with bounded

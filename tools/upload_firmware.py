@@ -53,7 +53,7 @@ async def install(image: FirmwareImage, directory: Path, verify_failures: bool) 
     async def status():
         if not manager.client or not manager.client.is_connected:
             raise FirmwareError("The deck disconnected during verification")
-        return decode_json(bytes(await manager.client.read_gatt_char(STATUS_UUID)))
+        return decode_json(bytes(await asyncio.wait_for(manager.client.read_gatt_char(STATUS_UUID), 5.0)))
     tasks = [asyncio.create_task(sample()), asyncio.create_task(manager.run())]
     try:
         await asyncio.wait_for(ready.wait(), 120.0)
@@ -136,7 +136,9 @@ def main() -> int:
         print(json.dumps(result, indent=2), flush=True)
         return 0
     except (Exception, KeyboardInterrupt) as exc:
-        print(f"Firmware upload failed: {exc}", file=sys.stderr)
+        detail = str(exc).strip() or ("Bluetooth operation timed out"
+            if isinstance(exc, asyncio.TimeoutError) else type(exc).__name__)
+        print(f"Firmware upload failed: {detail}", file=sys.stderr)
         return 1
     finally:
         if initialized:

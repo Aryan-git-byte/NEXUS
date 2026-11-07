@@ -99,6 +99,33 @@ from the module's documented power input; do not power its backlight directly
 from a GPIO. GPIO48 can also feed a board RGB LED; NEXUS does not install or run
 an RGB LED driver on that pin.
 
+### Waveshare ESP32-S3-Touch-LCD-2 carrier
+
+The user identified the actual carrier through this
+[manufacturer schematic](https://files.waveshare.com/wiki/ESP32-S3-LCD-2/ESP32-S3-Touch-LCD-2-SchDoc.pdf).
+It has a W25Q128 16 MB flash, an ETA6098 battery charger and a TMI3112H
+step-down converter. With no USB supply, the path is
+`VBAT -> AO3401 Q1 -> VCC -> TMI3112H U7 -> 3V3`.
+USB 5 V reaches VCC through Schottky D1; Q1 isolates the battery supply path
+when USB is present. A single 3.7 V nominal, 4.2 V full lithium-ion cell,
+including a suitable 18650, belongs on VBAT. Feed USB power through the USB/5V
+input, not VBAT. An external 3.3 V regulator before VBAT leaves the onboard
+buck without enough input headroom under load; it cannot boost that input.
+
+The current enclosure uses one raw 18650 on VBAT. The external TFT/backlight
+adds load to the board. A weak cell, low charge, protection-board resistance,
+wiring/contact resistance or a supply transient can expose a reset during radio
+activity. Confirm rail behavior or the actual reset cause before diagnosing it
+as a brownout. Dimming pixels does not reduce the backlight current.
+
+This carrier also connects GPIO47/48 to its onboard IMU and capacitive-touch
+I2C bus, while the external XPT2046 requires CLK/CS on these pins. GPIO16/21
+reach the camera's control bus, and GPIO19/20 reach the USB connector through
+22-ohm resistors. Do not run the onboard I2C/camera/USB drivers concurrently
+with the preserved external wiring. Disabling a driver does not electrically
+isolate a connected peripheral. If either touch reliability or power behavior
+changes with attached peripherals, inspect those shared nets before rewiring.
+
 ## Brightness and board assumptions
 
 No backlight control pin was supplied. Brightness therefore works through an

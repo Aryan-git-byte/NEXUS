@@ -1,5 +1,6 @@
 #include "ui_manager.hpp"
 #include "ui_styles.hpp"
+#include "diagnostics/boot_info.hpp"
 #include <cstdio>
 #include <cstring>
 #include "esp_chip_info.h"
@@ -100,9 +101,10 @@ void UiManager::build_settings() {
     }
     dropdown("Active profile",names,profiles_->active,4);
     heading("Device");
-    char info[192];
-    std::snprintf(info,sizeof(info),"NEXUS DECK  %s\nESP32-S3 / ILI9488 / XPT2046\n%d x %d  RGB565\nFree internal RAM: %u KB",
-        config::kVersion,lcd_.width(),lcd_.height(),static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024));
+    char info[256];
+    std::snprintf(info,sizeof(info),"NEXUS DECK  %s\nESP32-S3 / ILI9488 / XPT2046\n%d x %d  RGB565\nFree internal RAM: %u KB\nLast reset: %s",
+        config::kVersion,lcd_.width(),lcd_.height(),static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024),
+        boot_info().reset_reason);
     label = style::label(section,info,&lv_font_montserrat_14,true);
     lv_obj_set_width(label,lv_pct(100)); lv_label_set_long_mode(label,LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_line_space(label,4,0);

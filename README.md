@@ -3,10 +3,11 @@
 A wireless touchscreen macro controller for Windows 11, with an ESP32-S3,
 ILI9488 parallel TFT, calibrated XPT2046 touch, LVGL 9 and encrypted BLE.
 
-Version **1.3.0** includes the complete ESP-IDF firmware, Windows companion,
-stylus-friendly local apps and Bluetooth firmware updates. The hardware baseline
-and later releases are recorded in Git; see [verification](docs/TESTING.md) for the current build, installation and
-physical upload status.
+Version **1.3.1** includes the ESP-IDF firmware, Windows companion,
+stylus-friendly local apps, Bluetooth firmware updates and reset diagnostics.
+The connected deck still runs the verified 1.3.0 image: its diagnostic update
+was interrupted before boot selection. See [verification](docs/TESTING.md) for
+the current build, installation and physical upload status.
 
 ## What is included
 
@@ -28,6 +29,8 @@ physical upload status.
   sound controls. Timers keep running while you navigate or use the clock screen.
 - Wireless firmware uploads through the companion's Firmware window, with image
   validation, progress, cancellation, verified reboot and automatic boot rollback.
+- Actual reset cause, boot identity and uptime in Setup and the companion when
+  diagnostic firmware is installed; transfer failures report their phase and byte count.
 
 CPU/RAM/disk/network readings come from the actual PC. Unsupported GPU,
 temperature, media and battery fields are shown as unavailable. Project and dev

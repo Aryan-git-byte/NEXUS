@@ -61,3 +61,7 @@ target_include_directories(nexus_ota_tests PRIVATE "${NEXUS_ROOT}/tests/native/o
 target_compile_definitions(nexus_ota_tests PRIVATE MBEDTLS_CONFIG_FILE="nexus_mbedtls.h")
 target_compile_features(nexus_ota_tests PRIVATE cxx_std_17)
 target_link_libraries(nexus_ota_tests PRIVATE lvgl)
+add_executable(nexus_boot_tests "${NEXUS_ROOT}/tests/native/boot_info_test.cpp"
+    "${NEXUS_MAIN}/diagnostics/boot_info.cpp")
+target_include_directories(nexus_boot_tests PRIVATE "${NEXUS_ROOT}/tests/native/boot_fixtures" "${NEXUS_MAIN}")
+target_compile_features(nexus_boot_tests PRIVATE cxx_std_17)

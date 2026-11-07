@@ -17,7 +17,7 @@ The factory image remains at `0x60000`; the two 4 MB update slots are at
 `0x660000` and `0xA60000`. Boot metadata occupies the unused `0x5A000` gap.
 
 After a USB bootstrap, tap RESET without holding BOOT to return to the dashboard.
-Install the current 1.3.0 companion: it can recover Windows' earlier cached GATT
+Install the current companion: it can recover Windows' earlier cached GATT
 table while preserving the saved bond. Subsequent firmware boots announce
 Service Changed to refresh that table automatically. Wireless upload runs from
 the dashboard/UI, never from ROM download mode.
@@ -64,6 +64,19 @@ remain connected. An unhealthy pending image restarts after 45 seconds so the
 bootloader can choose the previous usable image. Unexpected resets before
 confirmation also trigger bootloader rollback. An unverified reconnect is
 reported as a failure, even if the upload itself finished.
+
+Transfer failures before the completion request report the last acknowledged
+byte count and retain the selected boot image. Once the completion request has
+started, cancellation is disabled: its acknowledgement can be lost after boot
+metadata changes. The companion then reconnects and checks the actual slot,
+version, ELF identity and boot confirmation. A timeout or interrupted check at
+this stage reports an unknown result and asks you to inspect the live firmware
+status; it does not claim the old image was retained.
+
+If the screen blanks and reloads during transfer, investigate a power/reset
+fault rather than repeatedly uploading. Firmware 1.3.1 exposes the actual reset
+cause in Setup > Device and through authenticated Status, when it has been
+installed. See the board-specific [power checks](TROUBLESHOOTING.md#screen-blanks-and-dashboard-reloads-during-bluetooth).
 
 The file hash detects corruption; authenticated pairing restricts uploads to
 the saved PC. This is not a cloud updater or a secure-boot signature service.

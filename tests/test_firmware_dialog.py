@@ -76,3 +76,18 @@ def test_bad_file_and_legacy_device_cannot_upload(app, tmp_path, firmware_blob):
     finally:
         dialog.deleteLater()
         app.processEvents()
+
+
+def test_device_reset_cause_is_visible_and_missing_diagnostics_are_graceful(app, tmp_path):
+    controller = Controller(Settings(auto_connect=False), ProfileManager(tmp_path), tmp_path)
+    dialog = FirmwareDialog(controller)
+    try:
+        controller.device_changed.emit({"firmware": "1.3.1", "ota": True, "ota_confirmed": True,
+            "slot": "ota_1", "boot_id": "12ab34cd", "reset_reason": "brownout", "uptime_ms": 61000})
+        assert "Brownout (low voltage)" in dialog.device.text()
+        assert "Reported uptime 1m 1s" in dialog.device.text()
+        controller.device_changed.emit({"firmware": "1.3.0", "slot": "ota_0"})
+        assert "Last reset" not in dialog.device.text()
+    finally:
+        dialog.deleteLater()
+        app.processEvents()

@@ -64,6 +64,25 @@ also receives a fresh, lowercase 32-hex-character application session token.
 It prevents stale application packets from being reused after reconnect; the
 bond and authenticated BLE encryption provide authorization.
 
+## Boot diagnostics
+
+Firmware 1.3.1 adds three optional fields to the authenticated JSON descriptor:
+
+| Field | Representation | Meaning |
+|---|---|---|
+| `boot_id` | Eight lowercase hexadecimal digits | Random identity captured once per firmware boot |
+| `reset_reason` | A validated ESP-IDF reset classification | Actual cause returned by `esp_reset_reason()` |
+| `uptime_ms` | Unsigned integer | Monotonic device uptime at the time of this read |
+
+Reset classifications include `power_on`, `external`, `software`, `panic`,
+`interrupt_watchdog`, `task_watchdog`, `watchdog`, `deep_sleep`, `brownout`,
+`sdio`, `usb`, `jtag`, `efuse`, `power_glitch`, `cpu_lockup` and `unknown`.
+There are no additional NVS writes. The companion tolerates an older descriptor
+without these fields and rejects malformed diagnostic values. A changed boot
+identity or restarted uptime identifies a new boot; the cause is evidence,
+whereas a dropped Bluetooth link alone is not. UI uptime is explicitly labeled
+as the reported snapshot rather than an independently ticking clock.
+
 ## Firmware update messages
 
 Firmware 1.3.0 adds descriptor fields `ota`, `ota_confirmed`, `slot` and
@@ -91,7 +110,8 @@ version of at most 31 safe ASCII characters. Only ESP32-S3 images with project
 `nexus_deck` and a matching application version can pass the first-block check.
 ESP-IDF verifies the complete image before boot selection. A new connection
 aborts an unfinished transfer; there is no resume across sessions. An idle
-transfer expires after 120 seconds. Cancellation is unavailable after commit.
+transfer expires after 120 seconds. Cancellation becomes unavailable when the
+completion request starts, because boot selection may precede its acknowledgement.
 The companion verifies a fresh connection's slot, version, ELF hash and
 `ota_confirmed:true` before reporting completion. See [OTA.md](OTA.md).
 
