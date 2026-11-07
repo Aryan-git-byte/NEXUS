@@ -1,0 +1,43 @@
+{
+  "firmware": "1.3.0",
+  "target": "esp32s3",
+  "esp_idf": "5.5.4",
+  "lvgl": "9.2.2",
+  "build_exit_code": 0,
+  "application_bytes": 1098896,
+  "application_sha256": "a82845272e261a9d4d1869b23c944a7cd533b52ffda425ad605b18778864c5ef",
+  "application_elf_sha256": "da2a031666f52850a1755aec3ce6e5cde549af7ecd2cfccba1781ead988b0b8d",
+  "application_partition_bytes": 4194304,
+  "partition_free_bytes": 3095408,
+  "flash_plan_validated": true,
+  "bootloader_rollback_enabled": true,
+  "flash_capacity_required_bytes": 16777216,
+  "build_command": "tools/build_firmware.ps1 -BuildDirectory build-direct -UseUniversalCompiler -DisableCompilerCache -Jobs 4",
+  "observed_at": "2026-11-07T08:16:54.787684+00:00",
+  "images": [
+    {
+      "offset": "0x0",
+      "file": "bootloader/bootloader.bin",
+      "bytes": 20896,
+      "sha256": "2299b783111ad0190c49f43d7a23b44ecbe8b2b91fd4745a879d7f32876c91e3"
+    },
+    {
+      "offset": "0x8000",
+      "file": "partition_table/partition-table.bin",
+      "bytes": 3072,
+      "sha256": "3bd4380f67be2ac2643ccd4b31076093d39e7ed2bb9636112b80ebe14e72d515"
+    },
+    {
+      "offset": "0x5a000",
+      "file": "ota_data_initial.bin",
+      "bytes": 8192,
+      "sha256": "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f"
+    },
+    {
+      "offset": "0x60000",
+      "file": "nexus_deck.bin",
+      "bytes": 1098896,
+      "sha256": "a82845272e261a9d4d1869b23c944a7cd533b52ffda425ad605b18778864c5ef"
+    }
+  ]
+}

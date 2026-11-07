@@ -1,0 +1,31 @@
+{
+  "version": "1.3.0",
+  "slot": "ota_0",
+  "bytes": 1098896,
+  "sha256": "a82845272e261a9d4d1869b23c944a7cd533b52ffda425ad605b18778864c5ef",
+  "boot_confirmed": true,
+  "success": true,
+  "observed_at": "2026-11-07T08:35:38.401467+00:00",
+  "duration_seconds": 1058.33,
+  "initial_slot": "factory",
+  "final_device": {
+    "name": "NEXUS DECK",
+    "firmware": "1.3.0",
+    "protocol": 1,
+    "icon_assets": true,
+    "local_apps": true,
+    "timer_alerts": true,
+    "max_message": 49152,
+    "ready": true,
+    "mtu": 247,
+    "ota": true,
+    "ota_confirmed": true,
+    "slot": "ota_0",
+    "elf_sha256": "da2a031666f52850a1755aec3ce6e5cde549af7ecd2cfccba1781ead988b0b8d"
+  },
+  "profiles_synchronized": 6,
+  "checks": {
+    "invalid_manifest_rejected": true,
+    "cancelled_transfer_retained_current_firmware": true
+  }
+}

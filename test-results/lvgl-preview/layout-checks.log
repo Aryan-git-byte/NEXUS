@@ -1,6 +1,8 @@
 landscape: four separate settings controls and expanded lists rendered
 landscape: local app taps, navigation, cat pats, timer completion and modal targets passed
+landscape: firmware upload feedback fits, stays visible and clears after failure
 portrait: four separate settings controls and expanded lists rendered
 portrait: local app taps, navigation, cat pats, timer completion and modal targets passed
+portrait: firmware upload feedback fits, stays visible and clears after failure
 PASS: actual LVGL pages in both orientations; macro and media text do not overlap
 PASS: notifications fit after rotation, expire, allow touch and stay off the idle clock

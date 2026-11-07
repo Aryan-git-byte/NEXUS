@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import copy
 import logging
 import random
@@ -18,11 +19,12 @@ from bleak.exc import BleakError
 from .actions import ActionEngine
 from .profiles import ProfileManager, device_profile
 from .protocol import (COMMAND_UUID, PROFILE_UUID, RESPONSE_UUID, SERVICE_UUID, STATUS_UUID,
-                       TELEMETRY_UUID, ProtocolError, Reassembler, decode_json, encode_json,
+                       TELEMETRY_UUID, FIRMWARE_UUID, ProtocolError, Reassembler, decode_json, encode_json,
                        fragment, sequence)
 from .settings import Settings
 from .icons import profile_assets
 from .alerts import TIMER_ALERTS
+from .firmware import FirmwareError, FirmwareImage
 
 log = logging.getLogger(__name__)
 
@@ -108,13 +110,20 @@ class BluetoothManager:
                  action_callback: Callable[[str, str], None],
                  address_callback: Callable[[str], None],
                  pin_callback: Callable[[str], Awaitable[str | None]] | None = None,
-                 profile_callback: Callable[[str], None] | None = None):
+                 profile_callback: Callable[[str], None] | None = None,
+                 device_callback: Callable[[dict[str, Any]], None] | None = None):
         self.settings = settings
         self.on_state, self.on_action, self.on_address = state_callback, action_callback, address_callback
         self.on_pin, self.on_profile = pin_callback, profile_callback
+        self.on_device = device_callback
         self.client: BleakClient | None = None
         self.session = ""
         self.ready = False
+        self.device_info: dict[str, Any] = {}
+        self.updating = False
+        self.update_committed = False
+        self.update_task: asyncio.Task | None = None
+        self.update_lock = asyncio.Lock()
         self.icon_assets_supported = False
         self.synced_icons: set[str] = set()
         self.running = True
@@ -123,7 +132,7 @@ class BluetoothManager:
         self.disconnected = asyncio.Event()
         self.write_lock = asyncio.Lock()
         self.channel_locks = {key: asyncio.Lock() for key in
-                              (TELEMETRY_UUID, RESPONSE_UUID, PROFILE_UUID, STATUS_UUID)}
+                              (TELEMETRY_UUID, RESPONSE_UUID, PROFILE_UUID, STATUS_UUID, FIRMWARE_UUID)}
         self.sync_lock = asyncio.Lock()
         self.command_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=32)
         self.pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
@@ -135,6 +144,11 @@ class BluetoothManager:
         self.saved_profiles: dict[str, dict[str, Any]] = {}
         self.profile_generation = 0
         self.active = settings.active_profile
+
+    def _set_device_info(self, info: dict[str, Any]) -> None:
+        self.device_info = dict(info)
+        if self.on_device:
+            self.on_device(dict(info))
 
     def _next_sequence(self) -> int:
         self.sequence = self.sequence % 0xFFFFFFFF + 1
@@ -169,6 +183,9 @@ class BluetoothManager:
 
     async def stop(self) -> None:
         self.running = False
+        if self.update_task and self.update_task is not asyncio.current_task():
+            self.update_task.cancel()
+            await asyncio.gather(self.update_task, return_exceptions=True)
         await self.disconnect()
 
     async def _find_device(self):
@@ -177,7 +194,15 @@ class BluetoothManager:
         candidates = [device for device, advert in devices.values()
                       if SERVICE_UUID in [u.lower() for u in advert.service_uuids]]
         if self.settings.device_address:
-            return next((d for d in candidates if d.address.lower() == self.settings.device_address.lower()), None)
+            selected = next((d for d in candidates if d.address.lower() == self.settings.device_address.lower()), None)
+            if selected is not None:
+                return selected
+            # Windows may still own the link after a central exits, leaving
+            # no advertisement to scan. The backend verifies the saved bond
+            # before attempting a direct connection to this address.
+            if sys.platform == "win32":
+                return self.settings.device_address
+            return None
         if len(candidates) > 1:
             raise BleakError("Multiple decks found; select one in Connection settings")
         return candidates[0] if candidates else None
@@ -303,9 +328,92 @@ class BluetoothManager:
             finally:
                 self.command_queue.task_done()
 
+    def cancel_firmware_update(self) -> None:
+        if self.update_task and not self.update_committed:
+            self.update_task.cancel()
+
+    async def upload_firmware(self, image: FirmwareImage,
+                              progress: Callable[[int, str], None]) -> dict[str, Any]:
+        if self.update_lock.locked():
+            raise FirmwareError("A firmware update is already running")
+        async with self.update_lock:
+            if not self.ready or not self.client or not self.client.is_connected:
+                raise FirmwareError("Connect your deck before uploading firmware")
+            if self.device_info.get("ota") is not True or self.client.services.get_characteristic(FIRMWARE_UUID) is None:
+                raise FirmwareError("Install OTA-enabled firmware over USB once to enable wireless updates")
+            if self.device_info.get("ota_confirmed") is not True:
+                raise FirmwareError("Wait for the current firmware to finish boot validation before updating")
+            self.update_task = asyncio.current_task()
+            self.updating, self.update_committed = True, False
+            transfer, session = uuid.uuid4().hex, self.session
+            started = False
+            destination = ""
+            def message(kind: str, **values) -> dict[str, Any]:
+                return {"type": kind, "sequence": self._next_sequence(), "session": session,
+                        "transfer": transfer, **values}
+            try:
+                async with self.sync_lock:
+                    progress(0, f"Preparing firmware {image.version}")
+                    started = True
+                    ready = await self._request(FIRMWARE_UUID, message("ota_begin", size=len(image.data),
+                        sha256=image.sha256, version=image.version), "ota_ack", timeout=30.0)
+                    maximum, destination = ready.get("max_chunk"), ready.get("slot")
+                    if type(maximum) is not int or not 512 <= maximum <= 4096 or destination not in ("ota_0", "ota_1") or type(ready.get("offset")) is not int or ready["offset"] != 0:
+                        raise FirmwareError("The deck returned an invalid firmware transfer response")
+                    att = max(20, min(512, int(self.client.mtu_size) - 3))
+                    block_size = min(maximum, max(512, (att - 16) * 16))
+                    for offset in range(0, len(image.data), block_size):
+                        if self.session != session or not self.client or not self.client.is_connected:
+                            raise BleakError("The firmware transfer disconnected; current firmware is retained")
+                        block = image.data[offset:offset + block_size]
+                        response = await self._request(FIRMWARE_UUID, message("ota_chunk", offset=offset,
+                            data=base64.b64encode(block).decode("ascii")), "ota_ack", timeout=30.0)
+                        received = offset + len(block)
+                        if type(response.get("offset")) is not int or response["offset"] != received:
+                            raise FirmwareError("The deck acknowledged an unexpected firmware offset")
+                        progress(min(95, int(received * 95 / len(image.data))),
+                                 f"Uploading {received:,} / {len(image.data):,} bytes")
+                    progress(96, "Verifying the complete firmware image")
+                    try:
+                        response = await self._request(FIRMWARE_UUID, message("ota_end"), "ota_ack", timeout=30.0)
+                        if response.get("restarting") is not True or response.get("slot") != destination:
+                            raise FirmwareError("The deck did not commit the verified firmware")
+                    except BleakError:
+                        if self.client and self.client.is_connected:
+                            raise
+                        # A reboot can close GATT before the final acknowledgement arrives.
+                    self.update_committed = True
+                progress(97, "Waiting for the deck to restart and reconnect")
+                deadline = time.monotonic() + 150.0
+                self.wake.set()
+                while time.monotonic() < deadline:
+                    if self.ready and self.session != session and self.client and self.client.is_connected:
+                        info = decode_json(bytes(await self.client.read_gatt_char(STATUS_UUID)))
+                        self._set_device_info(info)
+                        if info.get("slot") != destination or info.get("firmware") != image.version or info.get("elf_sha256") != image.elf_sha256:
+                            raise FirmwareError("The deck returned to another firmware image; the update was not confirmed")
+                        if info.get("ota_confirmed") is True:
+                            progress(100, f"Firmware {image.version} installed and boot verified")
+                            result = {"version": image.version, "slot": destination, "bytes": len(image.data),
+                                      "sha256": image.sha256, "boot_confirmed": True}
+                            log.info("OTA update verified: firmware %s, slot %s, %d bytes", image.version, destination, len(image.data))
+                            return result
+                        progress(99, "Checking the new firmware's display and Bluetooth tasks")
+                    await asyncio.sleep(1.0)
+                raise FirmwareError("Firmware was uploaded, but a confirmed reboot was not observed. Reconnect the deck to check its status.")
+            finally:
+                if started and not self.update_committed and self.session == session and self.client and self.client.is_connected:
+                    try:
+                        await asyncio.shield(self._request(FIRMWARE_UUID, message("ota_abort"), "ota_ack", timeout=2.0))
+                    except (Exception, asyncio.CancelledError):
+                        pass
+                self.updating = False
+                self.update_task = None
+
     async def _telemetry_loop(self) -> None:
         last_signature = None
         last_sent = 0.0
+        last_boot_check = 0.0
         while self.client and self.client.is_connected:
             if self.latest_telemetry and self.ready:
                 sample = copy.deepcopy(self.latest_telemetry)
@@ -315,7 +423,30 @@ class BluetoothManager:
                                "session": self.session, **sample}
                     await self._write(TELEMETRY_UUID, message)
                     last_sent, last_signature = time.monotonic(), signature
+                if self.device_info.get("ota") is True and self.device_info.get("ota_confirmed") is not True and time.monotonic() - last_boot_check >= 2.0:
+                    status = decode_json(bytes(await self.client.read_gatt_char(STATUS_UUID)))
+                    self._set_device_info(status)
+                    last_boot_check = time.monotonic()
             await asyncio.sleep(self.settings.telemetry_interval)
+
+    async def _initial_status(self) -> dict[str, Any]:
+        # A cached GATT session can become ACTIVE before NimBLE has completed
+        # restoring the authenticated bond. Retry only the two ATT security
+        # readiness errors; the protected read must still succeed unchanged.
+        deadline = time.monotonic() + 8.0
+        while self.client and self.client.is_connected:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise BleakError("The deck did not restore its authenticated Bluetooth connection")
+            try:
+                raw = await asyncio.wait_for(self.client.read_gatt_char(STATUS_UUID), min(5.0, remaining))
+                return decode_json(bytes(raw))
+            except BleakError as exc:
+                if not any(marker in str(exc) for marker in
+                           ("Protocol Error 0x05:", "Protocol Error 0x0F:")) or time.monotonic() >= deadline:
+                    raise
+                await asyncio.sleep(0.15)
+        raise BleakError("Deck disconnected before its encrypted handshake")
 
     async def run(self) -> None:
         backoff = 2.0
@@ -330,25 +461,29 @@ class BluetoothManager:
                 device = await self._find_device()
                 if device is None:
                     raise BleakError("Deck not found; power it on and enable Bluetooth")
-                self.on_state("connecting", "Pair with the six-digit passkey shown on the deck")
+                self.on_state("connecting", "Connecting to your saved deck" if self.settings.device_address else
+                              "Pair with the six-digit passkey shown on the deck")
                 self.disconnected.clear()
                 loop = asyncio.get_running_loop()
                 pairing_options = {}
                 if sys.platform == "win32":
                     from .pairing import NexusBleakClientWinRT
                     pairing_options = {"backend": NexusBleakClientWinRT,
-                                       "nexus_pin_provider": self.on_pin}
+                                       "nexus_pin_provider": self.on_pin,
+                                       "nexus_paired_address": isinstance(device, str)}
                 self.client = BleakClient(device, timeout=75.0, pair=True,
+                                          services={SERVICE_UUID},
                                           disconnected_callback=lambda _: loop.call_soon_threadsafe(self.disconnected.set),
                                           winrt={"use_cached_services": False}, **pairing_options)
                 await self.client.connect()
                 for characteristic in (COMMAND_UUID, TELEMETRY_UUID, RESPONSE_UUID, PROFILE_UUID, STATUS_UUID):
                     if self.client.services.get_characteristic(characteristic) is None:
                         raise BleakError("Device is missing the NEXUS GATT service; flash matching firmware")
-                status = decode_json(bytes(await self.client.read_gatt_char(STATUS_UUID)))
+                status = await self._initial_status()
                 if status.get("protocol") != 1 or status.get("name") != "NEXUS DECK":
                     raise BleakError("Incompatible deck firmware")
                 self.icon_assets_supported = status.get("icon_assets") is True
+                self._set_device_info(status)
                 self.synced_icons.clear()
                 self.session = uuid.uuid4().hex
                 for assembler in self.assemblers.values():
@@ -364,7 +499,7 @@ class BluetoothManager:
                          "epoch": int(time.time()), "utc_offset": self.latest_telemetry.get("utc_offset", 0)}
                 await self._request(STATUS_UUID, hello, "hello_ack")
                 log.info("Encrypted BLE session established with firmware %s", status.get("firmware", "unknown"))
-                self.on_address(device.address)
+                self.on_address(device if isinstance(device, str) else device.address)
                 await self.synchronize(self.saved_profiles, self.active)
                 backoff = 2.0
                 tasks = [asyncio.create_task(self._command_loop()), asyncio.create_task(self._telemetry_loop()),
@@ -376,10 +511,16 @@ class BluetoothManager:
             except asyncio.CancelledError:
                 break
             except Exception as exc:
-                self.on_state("disconnected", str(exc))
-                log.info("BLE connection: %s", exc)
+                detail = str(exc).strip()
+                if not detail:
+                    detail = ("Bluetooth connection timed out; keep the deck powered on and out of BOOT mode"
+                              if isinstance(exc, asyncio.TimeoutError) else
+                              f"Bluetooth connection failed ({type(exc).__name__})")
+                self.on_state("disconnected", detail)
+                log.info("BLE connection: %s", detail)
             finally:
                 self.ready = False
+                self._set_device_info({})
                 self.icon_assets_supported = False
                 self.synced_icons.clear()
                 for task in tasks:

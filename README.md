@@ -3,9 +3,9 @@
 A wireless touchscreen macro controller for Windows 11, with an ESP32-S3,
 ILI9488 parallel TFT, calibrated XPT2046 touch, LVGL 9 and encrypted BLE.
 
-Version **1.2.0** includes the complete ESP-IDF firmware, Windows companion and
-stylus-friendly local apps. The working 1.1.1 hardware baseline is recorded in
-Git; see [verification](docs/TESTING.md) for the current build, installation and
+Version **1.3.0** includes the complete ESP-IDF firmware, Windows companion,
+stylus-friendly local apps and Bluetooth firmware updates. The hardware baseline
+and later releases are recorded in Git; see [verification](docs/TESTING.md) for the current build, installation and
 physical upload status.
 
 ## What is included
@@ -26,6 +26,8 @@ physical upload status.
   reacts to pats, and has saved care settings and high scores.
 - Timer completion chimes and notifications on Windows, with device and companion
   sound controls. Timers keep running while you navigate or use the clock screen.
+- Wireless firmware uploads through the companion's Firmware window, with image
+  validation, progress, cancellation, verified reboot and automatic boot rollback.
 
 CPU/RAM/disk/network readings come from the actual PC. Unsupported GPU,
 temperature, media and battery fields are shown as unavailable. Project and dev
@@ -52,6 +54,12 @@ Keep the supplied pin mapping. GPIO19/20 are LCD data pins and native USB pins;
 GPIO43/44 are touch pins and UART0 pins. Runtime consoles and the PHY USB
 workaround are disabled. Native USB can disappear when the application starts.
 Use BOOT/RESET to enter ROM download mode if required by your board.
+
+After installing 1.3.0 over USB once, open **Firmware** in the Windows editor,
+choose `firmware/build/nexus_deck.bin` (or `build-direct/nexus_deck.bin`), and
+click **Upload over Bluetooth**. Keep the deck powered through the verified
+restart. No Wi-Fi setup or USB upload mode is needed for subsequent updates.
+The OTA layout requires **16 MB flash**. See [wireless updates](docs/OTA.md).
 
 ## Run the Windows companion
 
@@ -97,6 +105,7 @@ frames. Imported artwork is synchronized separately from the profile layout.
 - [Recorded verification and hardware acceptance checks](docs/TESTING.md)
 - [Local apps, games, timers and pixel cat](docs/APPS.md)
 - [Release changes](CHANGELOG.md)
+- [Wireless firmware uploads and recovery](docs/OTA.md)
 
 `firmware/` is the ESP-IDF project. `companion/` is the Python application.
 `profiles/` contains the six source profiles and generated device presentation

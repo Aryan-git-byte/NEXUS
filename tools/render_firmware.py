@@ -75,6 +75,7 @@ def main() -> None:
     (icons / f"{asset.id}.ndi").write_bytes(asset.data)
     print("Rendering portrait/landscape and every settings popup…",flush=True)
     execute([str(directory / "build/nexus_apps_tests.exe")],directory / "local-app-tests.log",environment)
+    execute([str(directory / "build/nexus_ota_tests.exe")],directory / "ota-tests.log",environment)
     execute([str(executable),str(fixture),str(directory),str(icons)],directory / "layout-checks.log",environment)
     count = 0
     for source in directory.glob("*.ppm"):

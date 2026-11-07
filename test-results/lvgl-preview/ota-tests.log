@@ -1,0 +1,4 @@
+PASS: OTA writes only the inactive slot, checks SHA-256 and retries without duplicate writes
+PASS: malformed manifests, bounds, offsets, Base64 and incompatible descriptors are rejected
+PASS: corruption, flash errors, cancel, disconnect and timeout retain current firmware
+PASS: new firmware requires continuous UI/radio health; unhealthy pending boot restarts for rollback

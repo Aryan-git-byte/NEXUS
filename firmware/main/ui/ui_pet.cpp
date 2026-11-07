@@ -6,7 +6,7 @@
 namespace nexus {
 void UiManager::position_pet() {
     if (!pet_overlay_) return;
-    const bool blocked = page_ == Page::Calibration || dialog_ || pairing_ || duration_dialog_ || !local_.pet_visible;
+    const bool blocked = page_ == Page::Calibration || dialog_ || pairing_ || duration_dialog_ || firmware_card_ || !local_.pet_visible;
     if (blocked) { lv_obj_add_flag(pet_overlay_,LV_OBJ_FLAG_HIDDEN); return; }
     lv_obj_remove_flag(pet_overlay_,LV_OBJ_FLAG_HIDDEN);
     const bool sleeping = page_ == Page::Screensaver;

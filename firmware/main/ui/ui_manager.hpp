@@ -77,6 +77,7 @@ private:
     void update_clock();
     void position_toast();
     void update_toast(uint64_t now);
+    void firmware_feedback(const UiEvent& event);
     void event(const UiEvent& event);
     void press(ButtonView& view, bool long_press);
     uint8_t profile_for(Category category) const;
@@ -93,6 +94,8 @@ private:
     lv_obj_t *media_title_ = nullptr, *media_artist_ = nullptr, *volume_slider_ = nullptr, *volume_label_ = nullptr;
     lv_obj_t *settings_connection_ = nullptr, *toast_ = nullptr, *toast_label_ = nullptr, *dim_ = nullptr;
     lv_obj_t *dialog_ = nullptr, *pairing_ = nullptr, *pairing_label_ = nullptr;
+    lv_obj_t *firmware_card_ = nullptr, *firmware_label_ = nullptr, *firmware_bar_ = nullptr;
+    uint64_t firmware_until_ = 0;
     lv_obj_t *cal_target_ = nullptr, *cal_instruction_ = nullptr;
     lv_obj_t *metric_labels_[10]{}, *metric_bars_[6]{}, *chart_ = nullptr;
     lv_chart_series_t *cpu_series_ = nullptr, *ram_series_ = nullptr;

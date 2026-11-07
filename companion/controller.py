@@ -14,6 +14,7 @@ from PySide6.QtCore import QObject, Signal
 
 from .actions import ActionEngine
 from .bluetooth import BluetoothManager
+from .firmware import FirmwareImage
 from .monitor import MediaMonitor, MonitorEngine, OptionalTemperatureMonitor
 from .profiles import ProfileManager
 from .settings import Settings
@@ -32,6 +33,9 @@ class Controller(QObject):
     pairing_requested = Signal(str, str)
     profile_selected = Signal(str)
     timer_finished = Signal(str, str)
+    device_changed = Signal(dict)
+    firmware_progress = Signal(int, str)
+    firmware_finished = Signal(bool, str)
 
     def __init__(self, settings: Settings, profiles: ProfileManager, directory: Path):
         super().__init__()
@@ -42,8 +46,18 @@ class Controller(QObject):
         self.thread: threading.Thread | None = None
         self.stop_event: asyncio.Event | None = None
         self.pin_requests: dict[str, asyncio.Future] = {}
+        self.device_info: dict[str, Any] = {}
+        self.connection_state = "disconnected"
         self.address_changed.connect(self._save_address)
         self.profile_selected.connect(self._save_active_profile)
+        self.device_changed.connect(self._remember_device)
+        self.status_changed.connect(self._remember_status)
+
+    def _remember_device(self, info: dict[str, Any]) -> None:
+        self.device_info = info
+
+    def _remember_status(self, state: str, _detail: str) -> None:
+        self.connection_state = state
 
     def start(self) -> None:
         if self.thread is not None:
@@ -94,7 +108,8 @@ class Controller(QObject):
         self.engine = engine
         self.manager = BluetoothManager(self.settings, engine, self.status_changed.emit,
                                         self.action_finished.emit, self.address_changed.emit,
-                                        self._request_pin, self.profile_selected.emit)
+                                        self._request_pin, self.profile_selected.emit,
+                                        self.device_changed.emit)
         self.manager.configure_profiles(self.profiles.snapshot(), self.settings.active_profile)
         monitor_worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="NexusTelemetry")
         monitor = await self.loop.run_in_executor(monitor_worker, MonitorEngine, self.settings, engine.audio)
@@ -177,6 +192,27 @@ class Controller(QObject):
                 raise RuntimeError("Background services are starting")
             await asyncio.to_thread(self.engine.alerts.test)
         self._submit(operation)
+
+    def upload_firmware(self, image: FirmwareImage) -> None:
+        if not self.loop or not self.manager:
+            self.firmware_finished.emit(False, "Services are starting; try again in a moment")
+            return
+
+        async def operation():
+            try:
+                result = await self.manager.upload_firmware(image, self.firmware_progress.emit)
+                self.firmware_finished.emit(True,
+                    f"Firmware {result['version']} installed in {result['slot']}. Restart and boot verified.")
+            except asyncio.CancelledError:
+                self.firmware_finished.emit(False, "Upload cancelled. The current firmware is retained.")
+            except Exception as exc:
+                log.info("Firmware upload failed: %s", exc)
+                self.firmware_finished.emit(False, str(exc))
+        self._submit(operation)
+
+    def cancel_firmware_update(self) -> None:
+        if self.loop and self.manager and self.loop.is_running():
+            self.loop.call_soon_threadsafe(self.manager.cancel_firmware_update)
 
     def synchronize(self, active: str) -> None:
         if not self.loop or not self.manager:

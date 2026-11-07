@@ -138,6 +138,11 @@ void UiManager::build(Page page, bool animate) {
     if (animate) { lv_screen_load_anim(root_,LV_SCR_LOAD_ANIM_FADE_IN,100,0,true); transition_until_ = now_ms() + 160; }
     else { lv_screen_load(root_); if (previous && previous != root_) lv_obj_delete(previous); }
     lv_obj_set_size(dim_,lcd_.width(),lcd_.height()); lv_obj_set_pos(dim_,0,0);
+    if (firmware_card_) {
+        lv_obj_set_width(firmware_card_,lcd_.width() - 24);
+        lv_obj_set_width(firmware_label_,lcd_.width() - 50);
+        lv_obj_set_width(firmware_bar_,lcd_.width() - 50); lv_obj_center(firmware_card_);
+    }
     if (page == Page::Screensaver || page == Page::Calibration) {
         lv_obj_add_flag(toast_,LV_OBJ_FLAG_HIDDEN); toast_until_ = 0;
     } else if (!lv_obj_has_flag(toast_,LV_OBJ_FLAG_HIDDEN)) position_toast();
@@ -165,6 +170,7 @@ void UiManager::brightness() {
     if (pairing_) lv_obj_move_foreground(pairing_);
     if (dialog_) lv_obj_move_foreground(dialog_);
     if (duration_dialog_) lv_obj_move_foreground(duration_dialog_);
+    if (firmware_card_) lv_obj_move_foreground(firmware_card_);
 }
 void UiManager::position_toast() {
     lv_obj_set_width(toast_,lcd_.width() - 24); lv_obj_set_height(toast_,LV_SIZE_CONTENT);
@@ -173,9 +179,44 @@ void UiManager::position_toast() {
     lv_obj_align(toast_,LV_ALIGN_BOTTOM_MID,0,-46);
 }
 void UiManager::update_toast(uint64_t now) {
+    if (firmware_card_ && firmware_until_ && now >= firmware_until_) {
+        lv_obj_delete(firmware_card_); firmware_card_ = firmware_label_ = firmware_bar_ = nullptr;
+        firmware_until_ = 0; position_pet();
+    }
     if (toast_until_ && now >= toast_until_) {
         lv_obj_add_flag(toast_,LV_OBJ_FLAG_HIDDEN); toast_until_ = 0;
     }
+}
+void UiManager::firmware_feedback(const UiEvent& event) {
+    if (!firmware_card_) {
+        firmware_card_ = style::card(lv_layer_top());
+        lv_obj_set_size(firmware_card_,lcd_.width() - 24,110);
+        lv_obj_set_style_pad_all(firmware_card_,12,0);
+        style::label(firmware_card_,"Firmware update",&lv_font_montserrat_20);
+        firmware_label_ = style::label(firmware_card_,"",&lv_font_montserrat_14);
+        lv_obj_set_pos(firmware_label_,0,30); lv_obj_set_size(firmware_label_,lcd_.width() - 50,LV_SIZE_CONTENT);
+        lv_label_set_long_mode(firmware_label_,LV_LABEL_LONG_WRAP);
+        firmware_bar_ = lv_bar_create(firmware_card_); lv_obj_set_pos(firmware_bar_,0,72);
+        lv_obj_set_size(firmware_bar_,lcd_.width() - 50,8);
+        lv_obj_set_style_bg_color(firmware_bar_,style::control,LV_PART_MAIN);
+        lv_obj_set_style_bg_color(firmware_bar_,style::accent,LV_PART_INDICATOR);
+    }
+    char message[176];
+    if (event.value >= 0) std::snprintf(message,sizeof(message),"%.150s  %ld%%",event.text,static_cast<long>(event.value));
+    else std::snprintf(message,sizeof(message),"%s",event.text);
+    style::set_text(firmware_label_,message);
+    lv_obj_set_width(firmware_card_,lcd_.width() - 24);
+    lv_obj_set_width(firmware_label_,lcd_.width() - 50);
+    lv_obj_set_width(firmware_bar_,lcd_.width() - 50);
+    lv_obj_update_layout(firmware_label_);
+    const int message_height = lv_obj_get_height(firmware_label_);
+    lv_obj_set_y(firmware_bar_,42 + message_height);
+    lv_obj_set_height(firmware_card_,74 + message_height);
+    lv_bar_set_value(firmware_bar_,std::clamp<int32_t>(event.value,0,100),LV_ANIM_OFF);
+    lv_obj_set_style_border_color(firmware_card_,event.sequence == 3 ? style::danger : style::border,0);
+    firmware_until_ = event.sequence == 1 ? 0 : now_ms() + 6000;
+    lv_obj_center(firmware_card_); lv_obj_move_foreground(firmware_card_); position_pet();
+    last_interaction_ = now_ms();
 }
 void UiManager::toast(const char* message, bool error) {
     if (page_ == Page::Screensaver) return;
@@ -322,6 +363,7 @@ void UiManager::update_values() {
 
 void UiManager::event(const UiEvent& incoming) {
     switch (incoming.kind) {
+    case UiEventKind::Firmware: firmware_feedback(incoming); break;
     case UiEventKind::AppsSaved:
         local_save_pending_ = false;
         if (!incoming.value) {
@@ -443,6 +485,7 @@ void UiManager::calibration_tick(const TouchSample& sample) {
 
 void UiManager::run() {
     while (true) {
+        ble_.ui_alive();
         UiEvent incoming;
         for (int i = 0; i < 8 && xQueueReceive(ui_events,&incoming,0) == pdTRUE; ++i) event(incoming);
         Telemetry telemetry;
@@ -479,7 +522,7 @@ void UiManager::run() {
         }
         update_toast(now);
         if (settings_.screensaver && page_ != Page::Calibration && page_ != Page::Screensaver &&
-            !dialog_ && !pairing_ && !duration_dialog_ && !snake_running_ &&
+            !dialog_ && !pairing_ && !duration_dialog_ && !firmware_card_ && !snake_running_ &&
             now - last_interaction_ >= settings_.idle_seconds * 1000) { previous_page_ = page_; schedule(Page::Screensaver); }
         uint32_t delay = lv_timer_handler();
         vTaskDelay(pdMS_TO_TICKS(std::clamp<uint32_t>(delay,2,10)));

@@ -1,0 +1,21 @@
+{
+  "version": "1.3.0",
+  "executable_hash_verified": true,
+  "executable_sha256": "15ebfd728d0a0e29f74ee7ba366a08bde0decbd6960da1d50d5ef687eeedf857",
+  "installed_instances": 1,
+  "background_arguments_verified": true,
+  "startup_target_verified": true,
+  "startup_arguments": "--background",
+  "start_menu_target_verified": true,
+  "uninstall_version_verified": true,
+  "timer_sound_hash_verified": true,
+  "timer_sound_sha256": "a44ed5da8fdd94d5592837742f64da72c44f2591197fb40fdea8af0ef1d2f326",
+  "encrypted_session_observed": true,
+  "profiles_synchronized_observed": 6,
+  "artwork_assets_synchronized_observed": 5,
+  "post_sync_background_process_observation_seconds": 179.97,
+  "observation_method": "Installed process/shortcut/hash checks and fresh runtime handshake/profile-sync records",
+  "subsequent_connection_error_observed": false,
+  "later_windows_sign_in_tested": false,
+  "observed_at": "2026-11-07T09:29:16.1001739+00:00"
+}

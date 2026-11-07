@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout, Q
 
 from .action_form import ActionForm
 from .connection_dialog import ConnectionDialog
+from .firmware_dialog import FirmwareDialog
 from .profiles import CATEGORIES, ICONS, MAX_BUTTONS, validate_profile
 from .tray import app_icon
 from .icons import asset_from_json, builtin_icon, import_image, tile_color
@@ -60,6 +61,8 @@ QCheckBox { spacing: 8px; padding: 5px 0; }
 QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #9AAAC4; border-radius: 4px; }
 QCheckBox::indicator:checked { background: #0067D8; border-color: #0067D8; }
 QSplitter::handle { background: transparent; width: 12px; }
+QProgressBar { background: #E4EAF5; border: 1px solid #CBD2E0; border-radius: 7px; min-height: 20px; text-align: center; }
+QProgressBar::chunk { background: #2997FF; border-radius: 6px; }
 QMenu { background: #FFFFFF; border: 1px solid #CBD2E0; padding: 5px; }
 QMenu::item { padding: 8px 24px; }
 QMenu::item:selected { background: #DCEBFF; }
@@ -132,6 +135,9 @@ class ConfigEditor(QMainWindow):
         connection = QPushButton("Connection")
         connection.clicked.connect(self.open_connection)
         header.addWidget(connection)
+        firmware = QPushButton("Firmware")
+        firmware.clicked.connect(self.open_firmware)
+        header.addWidget(firmware)
         self.sync_button = QPushButton("Sync to deck")
         self.sync_button.setObjectName("primary")
         self.sync_button.clicked.connect(self.synchronize)
@@ -616,6 +622,15 @@ class ConfigEditor(QMainWindow):
 
     def open_connection(self) -> None:
         dialog = ConnectionDialog(self.controller, self)
+        dialog.show()
+
+    def open_firmware(self) -> None:
+        for dialog in self.findChildren(FirmwareDialog):
+            if dialog.isVisible():
+                dialog.raise_()
+                dialog.activateWindow()
+                return
+        dialog = FirmwareDialog(self.controller, self)
         dialog.show()
 
     def _pairing(self, token: str, address: str) -> None:

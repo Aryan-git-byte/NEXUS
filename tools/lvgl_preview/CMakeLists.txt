@@ -44,3 +44,20 @@ add_executable(nexus_apps_tests "${NEXUS_ROOT}/tests/native/local_apps_test.cpp"
     "${NEXUS_MAIN}/apps/local_apps.cpp")
 target_include_directories(nexus_apps_tests PRIVATE "${NEXUS_MAIN}")
 target_compile_features(nexus_apps_tests PRIVATE cxx_std_17)
+add_executable(nexus_ota_tests "${NEXUS_ROOT}/tests/native/ota_test.cpp"
+    "${NEXUS_MAIN}/update/ota_manager.cpp" "${NEXUS_MAIN}/app_model.cpp"
+    "${NEXUS_MAIN}/bluetooth/ble_protocol.cpp" "${NEXUS_MAIN}/assets/icon_data.cpp"
+    "${IDF_PATH}/components/json/cJSON/cJSON.c"
+    "${IDF_PATH}/components/mbedtls/mbedtls/library/base64.c"
+    "${IDF_PATH}/components/mbedtls/mbedtls/library/constant_time.c"
+    "${IDF_PATH}/components/mbedtls/mbedtls/library/sha256.c"
+    "${IDF_PATH}/components/mbedtls/mbedtls/library/platform_util.c")
+target_include_directories(nexus_ota_tests PRIVATE "${NEXUS_ROOT}/tests/native/ota_fixtures"
+    include "${NEXUS_MAIN}" "${IDF_PATH}/components/json/cJSON"
+    "${IDF_PATH}/components/mbedtls/mbedtls/include"
+    "${IDF_PATH}/components/esp_common/include"
+    "${IDF_PATH}/components/esp_app_format/include"
+    "${IDF_PATH}/components/bootloader_support/include")
+target_compile_definitions(nexus_ota_tests PRIVATE MBEDTLS_CONFIG_FILE="nexus_mbedtls.h")
+target_compile_features(nexus_ota_tests PRIVATE cxx_std_17)
+target_link_libraries(nexus_ota_tests PRIVATE lvgl)

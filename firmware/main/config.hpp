@@ -6,7 +6,7 @@
 
 namespace nexus::config {
 inline constexpr char kName[] = "NEXUS DECK";
-inline constexpr char kVersion[] = "1.2.0";
+inline constexpr char kVersion[] = "1.3.0";
 inline constexpr int kDc = 13, kWr = 15, kReset = -1;
 inline constexpr int kNativeWidth = 320, kNativeHeight = 480;
 // Bit zero is D0. Never reorder this working 8080 bus.

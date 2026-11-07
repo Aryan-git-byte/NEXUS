@@ -1,5 +1,28 @@
 # Changes
 
+## 1.3.0 — 7 November 2026
+
+- Firmware uploads over the existing authenticated BLE connection, with bounded
+  fragmentation, chunk acknowledgements, duplicate retry handling and cancellation.
+- Two inactive 4 MB OTA slots and rollback metadata on the 16 MB flash device.
+  USB bootstrap/recovery preserves calibration, preferences, bonds and artwork.
+- Whole-image SHA-256, ESP32-S3/application descriptor and ESP-IDF image validation
+  before selecting a new boot slot. A new image confirms its boot after 20 seconds
+  of continuous live UI and Bluetooth host health.
+- Native Windows Firmware window with validated file selection, progress, cancel,
+  automatic reconnect and confirmation of version, ELF identity and boot slot.
+- Firmware update progress on the deck; existing light UI, black clock, stylus
+  apps and saved profiles continue to work.
+- Automated image, transport, Qt, partition migration and native OTA failure tests.
+- Windows GATT cache recovery after the update characteristic is added, with a
+  verified ATT declaration and acknowledged writes; existing pairing is retained.
+- Service Changed indications after firmware boot and direct reconnection to a
+  saved Windows bond when a retained connection has stopped advertising.
+- Connections refresh Windows' GATT attributes and wait for authenticated
+  encryption before the first status read, avoiding stale handles and a startup race.
+- Cold cached Windows sessions initiate a live link with an uncached protected
+  read, dispose discarded GATT resources and report readable timeout errors.
+
 ## 1.2.0 — 6 November 2026
 
 - Offline Apps hub with calculator, 2048, Snake, timers and a pettable pixel cat;

@@ -110,6 +110,28 @@ public:
         ui.timer_.set_mode(apps::TimerMode::Countdown); ui.timer_.set_duration(ui.local_.timer_seconds);
         std::printf("%s: local app taps, navigation, cat pats, timer completion and modal targets passed\n",suffix.c_str());
     }
+    static void firmware_interactions(UiManager& ui,const std::filesystem::path& directory,const std::string& suffix) {
+        ui.build(Page::Media,false);
+        UiEvent progress{}; progress.kind = UiEventKind::Firmware; progress.sequence = 1; progress.value = 47;
+        std::snprintf(progress.text,sizeof(progress.text),"Receiving firmware over Bluetooth");
+        ui.firmware_feedback(progress); draw();
+        auto check_card = [&]() {
+            lv_area_t box,text,bar;
+            lv_obj_get_coords(ui.firmware_card_,&box); lv_obj_get_coords(ui.firmware_label_,&text); lv_obj_get_coords(ui.firmware_bar_,&bar);
+            check(box.x1 >= 0 && box.y1 >= 0 && box.x2 < ui.lcd_.width() && box.y2 < ui.lcd_.height(),"Firmware progress card extends outside the display");
+            check(text.x1 >= box.x1 && text.x2 <= box.x2 && text.y2 < bar.y1 && bar.y2 < box.y2,"Firmware update text or progress is clipped");
+            check(lv_obj_has_flag(ui.pet_overlay_,LV_OBJ_FLAG_HIDDEN),"Cat covers firmware update feedback");
+        };
+        check_card(); save(directory / ("ota-progress-" + suffix + ".ppm"),ui.lcd_);
+        advance(ui,20000); check(ui.firmware_card_ != nullptr,"Active firmware progress expired during upload");
+        progress.sequence = 3; progress.value = -1;
+        std::snprintf(progress.text,sizeof(progress.text),"Firmware update disconnected; the current image is retained. Reconnect the deck, then choose your firmware file and try again.");
+        ui.firmware_feedback(progress); draw(); check_card();
+        save(directory / ("ota-cancelled-" + suffix + ".ppm"),ui.lcd_);
+        advance(ui,6001); check(ui.firmware_card_ == nullptr,"Firmware cancellation feedback did not expire");
+        check(!lv_obj_has_flag(ui.pet_overlay_,LV_OBJ_FLAG_HIDDEN),"Cat did not return after update feedback");
+        std::printf("%s: firmware upload feedback fits, stays visible and clears after failure\n",suffix.c_str());
+    }
     static void draw() {
         for (int tick = 0; tick < 8; ++tick) { lv_tick_inc(10); lv_timer_handler(); }
         lv_refr_now(nullptr);
@@ -211,6 +233,7 @@ public:
                 std::printf("%s: four separate settings controls and expanded lists rendered\n",suffix.c_str());
             }
             local_interactions(ui,directory,suffix);
+            firmware_interactions(ui,directory,suffix);
             ui.telemetry_.received_ms = 0; ui.ble_.restart(false);
             ui.build(Page::Home,false);
             save(directory / ("offline-" + suffix + ".ppm"),ui.lcd_);

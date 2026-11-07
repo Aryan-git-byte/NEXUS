@@ -111,7 +111,24 @@ If a PWM backlight input/MOSFET exists, set `NEXUS_BACKLIGHT_GPIO` in
 check must pass. The driver then uses active-high 1 kHz, 10-bit LEDC PWM and
 disables the visual dimming layer. No GPIO is guessed or enabled by default.
 
-Flash defaults to 16 MB, matching the existing workspace configuration. No PSRAM
-is assumed or required. For an 8 MB board, change flash size in `idf.py menuconfig`;
-the supplied partition table also fits 8 MB. The factory application partition
-is 4 MB. Updates use the wired bootloader; OTA is not part of this BLE controller.
+Flash is **16 MB**, matching the existing workspace configuration. The OTA
+partition table requires that capacity; changing only the menuconfig flash size
+does not make it fit an 8 MB board. No PSRAM is assumed or required. The factory
+image and each of two OTA images have a 4 MB slot. Firmware updates use the
+existing BLE radio, with no new GPIOs or Wi-Fi requirements.
+
+| Partition | Offset | Size |
+|---|---|---|
+| Calibration, settings and BLE NVS | `0x9000` | `0x50000` |
+| PHY initialization | `0x59000` | `0x1000` |
+| OTA boot metadata | `0x5A000` | `0x2000` |
+| USB factory/recovery application | `0x60000` | `0x400000` |
+| Icon storage | `0x460000` | `0x200000` |
+| OTA application 0 | `0x660000` | `0x400000` |
+| OTA application 1 | `0xA60000` | `0x400000` |
+
+The 1.2.0 NVS, factory and icon offsets are preserved. USB bootstrap initializes
+the new boot metadata in an unused gap, then writes the OTA-enabled factory
+application. USB recovery resets only boot metadata to select that factory
+image; normal OTA alternates the two update slots. Calibration, pairing and
+profiles survive. [OTA.md](OTA.md) describes the recovery flow.

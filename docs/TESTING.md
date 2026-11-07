@@ -1,146 +1,175 @@
-# Recorded verification: 1.2.0
+# Recorded verification: 1.3.0
 
-Build and software checks were recorded on 6 November 2026 with ESP-IDF 5.5.4,
-LVGL 9.2.2 and 64-bit Python 3.11 on Windows 11. Firmware 1.2.0 was uploaded
-on 7 November 2026. All three image hashes verified, the device booted, and
-the installed companion established an encrypted BLE session and synchronized
-six profiles and five artwork assets.
+On 7 November 2026, the ESP32-S3 received the final 1.3.0 application over its
+authenticated Bluetooth connection, rebooted into ota_0, and confirmed its
+boot. Two deliberate disconnects then restored fresh encrypted sessions,
+six profiles, five artwork assets and actual PC telemetry. The final Windows
+package is installed with tray operation and sign-in startup configured.
+
+Builds use ESP-IDF 5.5.4, LVGL 9.2.2 and 64-bit Python 3.11 on Windows 11.
+Public evidence excludes raw radio logs, machine names, pairing data and flash
+backups. The [1.2.0 record](TESTING_1.2.0.md) and
+[1.1.1 record](TESTING_1.1.1.md) retain earlier verification.
 
 ## Firmware build
 
-The final build, including the notification layout fixes, exited successfully:
+The actual build completed successfully:
 
-```text
-[18/20] Linking CXX executable nexus_deck.elf
-Successfully created esp32s3 image.
-nexus_deck.bin binary size 0x107f30 bytes.
-Smallest app partition is 0x400000 bytes. 0x2f80d0 bytes (74%) free.
-```
+    [19/21] Linking CXX executable nexus_deck.elf
+    Successfully created esp32s3 image.
+    nexus_deck.bin binary size 0x10c490 bytes.
+    Smallest app partition is 0x400000 bytes. 0x2f3b70 bytes (74%) free.
 
-The application is 1,081,136 bytes. SHA-256:
+The final application is 1,098,896 bytes. SHA-256:
 
-```text
-2fd5237e7c883bfcada80fa0c4a0e15e211dd4fe6dd587b12b35a1e17000afa6
-```
+    a82845272e261a9d4d1869b23c944a7cd533b52ffda425ad605b18778864c5ef
 
-`test-results/firmware-build-1.2.0.json` records the image hashes and validated
-flash plan from 6 November, before upload. The current hardware upload result
-is in `test-results/firmware-upload-1.2.0.json`.
-The original LCD/touch pin configuration, display initialization,
-RGB565 transport and calibration storage are unchanged. The new app preferences
-use a separate `nexus_apps/prefs_v1` record. Compiling does not verify physical
-touch, rendering, radio operation or persistence on the board.
+ELF identity reported by the running device:
 
-## Windows regression tests
+    da2a031666f52850a1755aec3ce6e5cde549af7ecd2cfccba1781ead988b0b8d
 
-```text
-120 passed in 3.16s
-```
+The public firmware-build-1.3.0.json in test-results records image hashes, the
+validated four-image USB recovery plan and the actual compiler command. The
+display bus, ILI9488 initialization, RGB565 transport, touch pins and calibration
+format remain unchanged. Bootloader rollback is enabled; the build rejects an
+old configuration that disables it.
 
-The suite retains the existing protocol, profile, editor, Windows input,
-monitoring, pairing and calibration-preserving flash tests. New checks cover
-the original PCM chime, disabled/unavailable audio fallback, boolean settings
-migration, session-bound timer events, validation and duplicate suppression.
-Windows input is intercepted in regression tests.
+## USB bootstrap and storage preservation
 
-Results: `test-results/python-tests.xml`, with the machine hostname removed.
+The board's physical flash capacity was identified as 16 MB. Before the initial
+OTA-enabled factory bootstrap, the helper backed up 6,684,672 bytes with verified
+512 KB reads. The bootloader, partition table, OTA metadata and factory image
+were written and all four image hashes verified. NVS, PHY and artwork regions
+were excluded from write/erase ranges.
 
-## Native local-app tests
+The bootstrap factory application had SHA-256
+920a52ce74b6bbd318eabc7b2a92d40da4f6c9ffe34c1f8df6303f7c0bf9f048.
+It is distinct from the final cache-repair application subsequently uploaded
+wirelessly. The public firmware-usb-bootstrap-1.3.0.json records that initial
+upload. Raw backups and preserved NVS contents remain private and ignored.
 
-The host build compiles the actual firmware model code. All five groups passed:
+ROM download mode does not advertise Bluetooth. After a normal RESET, the user
+reported the dashboard and the agent observed advertising and an authenticated
+status read from the actual device.
 
-```text
-PASS: 2048 merges, undo, stuck boards, bounds and 30 seeded games
-PASS: Snake turns, tail movement, collisions, food and a full-board win
-PASS: calculator arithmetic, percentages, repeated equals and error recovery
-PASS: countdown deadlines, pause/resume, focus cycles, long break and stopwatch laps
-PASS: pet pat reactions, care, slow decay, offline recovery and record validation
-```
+## Physical Bluetooth OTA test
 
-See `test-results/lvgl-preview/local-app-tests.log`. These checks execute real
-game/calculator/timer code without accessing display, touch, NVS or BLE hardware.
+The production uploader first verified that the real device rejected an invalid
+manifest. It then cancelled a partial upload and checked that the original
+factory slot, version, ELF identity and confirmation remained unchanged.
 
-## LVGL rendering and stylus interactions
+The complete final application was then transferred to the inactive slot.
+Selected actual output:
 
-The actual firmware UI was compiled against LVGL 9.2.2 and rendered into 56
-portrait/landscape images. Checks exercised calculator keys, navigation,
-Snake pause/resume, cat pats and visibility, timer completion, duration controls
-and the four separate Settings dropdowns. Every local-app button fits its
-viewport and has a target of at least 38 by 38 logical pixels.
+    Device checks passed: invalid manifest rejected; cancelled upload retained current firmware.
+    95% Uploading 1,098,896 / 1,098,896 bytes
+    96% Verifying the complete firmware image
+    97% Waiting for the deck to restart and reconnect
+    Encrypted BLE session established with firmware 1.3.0
+    Profiles synchronized: 6 profiles, 5 artwork assets
+    100% Firmware 1.3.0 installed and boot verified
+    OTA update verified: firmware 1.3.0, slot ota_0, 1098896 bytes
 
-```text
-landscape: local app taps, navigation, cat pats, timer completion and modal targets passed
-portrait: local app taps, navigation, cat pats, timer completion and modal targets passed
-PASS: actual LVGL pages in both orientations; macro and media text do not overlap
-PASS: notifications fit after rotation, expire, allow touch and stay off the idle clock
-```
+The transfer and confirmed reboot took 1,058.33 seconds, about 17 minutes
+38 seconds, at ATT MTU 247. This first migration used Windows' descriptor API
+for an OTA value misclassified by its earlier cached service table. Other
+adapters and ordinary characteristic uploads can differ in speed. Completion
+was checked through a fresh session, matching slot/version/ELF identity and
+ota_confirmed:true, rather than inferred from bytes sent.
 
-The clock checks require black backgrounds, white lettering, fitting bold
-digits and the retained computer name. The final local-app layouts, duration
-dialog and black clock were visually inspected in both orientations.
+Full public result: [ota-upload-1.3.0.json](../test-results/ota-upload-1.3.0.json).
 
-The layout log, native log, two clock images and two app contact sheets are
-retained in `test-results/lvgl-preview/`. Other images, fixtures and compiler
-logs are generated locally and ignored. All preview PC names and telemetry
-values are explicitly labeled fixtures, not readings from the device.
+## Bluetooth connection repair and reconnection
+
+Windows retained the earlier five-characteristic service table when the sixth
+OTA control was introduced. Forced discovery failed with ERROR_BAD_COMMAND.
+The companion recovered the actual write-only OTA value after reading and
+validating its ATT declaration, adjacent value handle and UUID. The final
+firmware announces Service Changed after boot. Connections refresh Windows'
+attributes, with bounded waiting for authenticated encryption before the
+first protected status read. Other access errors remain failures.
+
+An additional cold-launch check reproduced six locally cached controls with a
+CLOSED GATT session and a blank 25-second timeout. The final backend issues an
+uncached protected Status read before waiting for the real ACTIVE event. It
+accepts only temporary ATT authentication/encryption readiness errors at that
+step; the later protected handshake must succeed. Unreachable/forbidden peers
+and cancellation dispose the unclaimed native services. Regression checks cover
+these cases and readable timeout feedback.
+
+The cache/encryption connection logic passed two deliberate disconnect/reconnect cycles:
+
+| Observation | Actual result |
+| --- | --- |
+| First automatic reconnect and profile sync | 69.72 seconds; fresh session |
+| Second automatic reconnect and profile sync | 21.78 seconds; fresh session |
+| Continuous connected observation afterward | 30.91 seconds |
+| Real PC telemetry samples during the check | 118 |
+| Successful telemetry ATT writes | 17 |
+| Post-update OTA descriptor bridge needed | No |
+
+Each status read identified the final confirmed image in ota_0. No reconnect
+needed passkey entry or deleting the saved bond. Evidence:
+[ble-reconnection-1.3.0.json](../test-results/ble-reconnection-1.3.0.json).
+
+## Software and rendered UI checks
+
+The final Python regression suite passed:
+
+    180 passed in 8.54s
+
+Checks cover protocol validation/reassembly, approved actions, profiles,
+monitoring fallbacks, editor controls, authenticated pairing, cold/stale GATT
+cache recovery, cold-session link initiation, the encryption startup race, firmware validation, OTA retries,
+cancellation, wrong reboot identity and calibration-preserving flash recovery.
+The python-tests.xml record has its hostname removed. Windows input and
+radio operations are intercepted in these regression tests.
+
+The native host build executes the actual game/calculator/timer/pet models and
+OTA state machine. Five local-app groups and four OTA groups passed. OTA groups
+cover inactive-slot writes, hash/retry behavior, malformed input, flash errors,
+cancel/disconnect/timeouts and continuous boot health/rollback using explicit
+simulated flash and reset boundaries. Logs are retained in
+test-results/lvgl-preview/local-app-tests.log and ota-tests.log.
+
+The actual LVGL pages rendered into 60 portrait/landscape images. Interaction
+checks passed for stylus controls, navigation, cat pats, timer completion,
+separate settings dropdowns, media text bounds, notifications and OTA feedback.
+The black clock and upload/failure cards were visually inspected in both
+orientations. The Windows Firmware dialog was also visually inspected through
+the native Windows font platform. Its preview uses a fixture connection state,
+and firmware file details come from the actual compiled image.
 
 ## Packaged companion and background installation
 
-PyInstaller built version 1.2.0 successfully. The packaged smoke test exited
-with code 0 after opening the real editor, loading six profiles and eight
-preview buttons, starting services and collecting two actual PC telemetry samples.
-See `test-results/companion-smoke-1.2.0.json`.
+PyInstaller built the final 1.3.0 application. Its packaged startup check exited
+0 after opening the real editor, loading six profiles/eight preview buttons,
+starting services and collecting two real PC telemetry samples. It executed no
+macros or Bluetooth connections. Result:
+[companion-smoke-1.3.0.json](../test-results/companion-smoke-1.3.0.json).
 
-The per-user installer then installed 1.2.0, preserved local configuration,
-registered Start-menu/uninstall entries and started the background process.
-Verification found exactly one running installed instance, matching EXE hashes,
-`--background` arguments and the correct Startup-folder shortcut. The packaged
-and installed timer WAV hashes match the source. A later Windows sign-in was
-not simulated. Evidence: `test-results/companion-installed-1.2.0.json`.
+The per-user installer preserves local profiles/settings and pairing, verifies
+the copied executable, registers Start-menu/uninstall entries and configures a
+Startup-folder shortcut with --background. The installed tray instance's live
+connection and executable/shortcut checks are recorded in
+test-results/companion-installed-1.3.0.json. A subsequent Windows sign-in was
+not simulated.
 
-The Windows `PlaySound` API accepted the chime. This establishes successful API
-invocation; it does not establish that a person heard it or that a physical
-timer event reached Windows over BLE.
+The installed package established a new encrypted session and synchronized all
+six profiles/five artwork assets after its background launch. Process, executable,
+startup shortcut and runtime records were checked again about three minutes
+after synchronization, with no subsequent connection error recorded. This is
+distinct from the direct manager's continuous on-device status-read test.
 
-## Physical upload, boot and reconnection
+## Limits of these observations
 
-On 7 November, COM17 appeared as the ESP32-S3 USB Serial/JTAG device.
-Esptool identified the actual ESP32-S3 rev v0.2 with 8 MB embedded PSRAM.
-The helper backed up 6,684,672 bytes, verified the backup against the partition
-table, and validated the unchanged flash layout before writing. The NVS,
-PHY and icon-store regions were outside every write/erase range, retaining
-calibration, settings, pairing and existing artwork.
+The actual wireless upload, rejection/cancellation, confirmed reboot, encrypted
+reconnection, profile synchronization and telemetry writes were performed on
+the physical deck. The agent did not perform a physical display/touch audit,
+calibration accuracy measurement after power loss, or a stylus-triggered
+timer-to-PC sound audit for 1.3.0. Host rendering and storage preservation checks
+do not substitute for those observations.
 
-The bootloader, partition table and 1,081,136-byte application were written.
-Each of the three images reported `Hash of data verified`. Selected upload output:
-
-```text
-Migration validated. Touch calibration/NVS preserved.
-Wrote 1081136 bytes (630831 compressed) at 0x00060000 in 8.6 seconds (effective 1007.7 kbit/s)...
-Hash of data verified.
-Upload and hash verification succeeded. USB may disappear when the LCD takes GPIO19/20.
-```
-
-After reset, the installed companion reported the new version and completed
-profile/artwork synchronization. Selected log messages, with logger names and
-milliseconds omitted:
-
-```text
-2026-11-07 12:20:33 INFO Encrypted BLE session established with firmware 1.2.0
-2026-11-07 12:20:40 INFO Profiles synchronized: 6 profiles, 5 artwork assets
-```
-
-This verifies physical firmware boot, BLE operation, encrypted reconnection
-and profile/artwork synchronization. The public summary is
-`test-results/firmware-upload-1.2.0.json`; complete flash backups, bond data
-and raw logs remain private and ignored by Git.
-
-A physical visual/touch audit, calibration accuracy after power loss, game
-input and timer-to-PC sound triggered from the actual deck have not been
-performed by the agent. Host tests and the accepted Windows audio API call
-remain distinct from those physical observations.
-
-The [1.1.1 baseline record](TESTING_1.1.1.md) documents the previous successful
-COM17 upload, user-confirmed interface and black clock, encrypted handshake,
-six synchronized profiles and five artwork assets. Its retained
-`test-results/firmware-upload.json` describes **1.1.1**, not the new build.
+A physical power-cut/rollback test, minimum-MTU upload and a second complete
+upload into ota_1 were not performed. Their relevant state/transport paths
+were exercised with the explicit native and simulated ATT fixtures.

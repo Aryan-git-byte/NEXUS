@@ -50,9 +50,60 @@ then use Connection > Discover nearby decks. The firmware advertises the custom
 service, not an HID keyboard or serial port. If several decks are found, select
 the desired address. A saved address restricts automatic reconnect to that deck.
 
+ROM download mode has no Bluetooth radio application. Tap RESET without holding
+BOOT and wait for the dashboard. Hold BOOT only for USB flashing/recovery;
+wireless updates require normal operation.
+
 Confirm the firmware actually flashed is the `firmware/` NEXUS project, not the
 archived `references/original/` HID firmware. Native USB serial disappearing
 after boot is expected with this GPIO mapping.
+
+## Bluetooth fails after an update with “The device does not recognize the command”
+
+Windows can retain the earlier five-characteristic GATT table after the OTA
+receiver adds a sixth characteristic. Version 1.3.0 announces Service Changed
+after boot so the bonded PC refreshes that table. Connections request fresh
+attributes; forced discovery can still return `ERROR_BAD_COMMAND` on some
+adapters. That specific error uses a validated cache fallback. An older table
+is repaired by reading the actual OTA ATT declaration and preserves encrypted,
+acknowledged writes.
+
+Install the current companion package before reconnecting an earlier 1.3.0
+bootstrap. This recovery keeps the existing Windows/ESP32 bond. Other permission,
+authentication and malformed-attribute errors are still rejected. A saved paired
+address can reconnect directly if Windows retains a link and the deck has stopped
+advertising. Only paired devices qualify for that fallback.
+
+A cold Windows session can return all six cached controls without making any
+radio connection. The companion issues an uncached protected Status read when
+the session is inactive, then waits for the real ACTIVE event. Unreachable
+devices and access-denied errors remain failures; metadata alone never enables
+commands. Connection timeouts now have a readable explanation in the editor/log.
+
+A cached GATT connection can become active before encryption finishes. The
+companion waits up to eight seconds for the initial authenticated status read,
+retrying only ATT authentication/encryption readiness errors. It never accepts
+unencrypted status or actions, and other access errors are not bypassed.
+
+Run one BLE central at a time. Quit the tray companion before using
+`tools/upload_firmware.py` or another connection diagnostic, then restart it
+afterward. Advertising normally pauses while a central is connected.
+
+## Wireless upload fails, is cancelled, or needs recovery
+
+Choose the application `nexus_deck.bin` from the current firmware build. A merged
+image, bootloader, partition table, damaged file or another chip's image is
+rejected before transfer. Keep the deck powered during upload and reboot.
+
+A cancelled/disconnected uncommitted transfer keeps the current boot image. Retry
+from byte zero after reconnecting. The companion reports success only after a
+fresh session identifies the intended slot, version and ELF digest and confirms
+the new boot. A pending image needs 20 continuous seconds of UI/Bluetooth host
+health; an unhealthy boot restarts for bootloader rollback. See [OTA.md](OTA.md).
+
+For USB recovery, use the backup-preserving flash helper. It selects the factory
+application by resetting only OTA boot metadata and preserves NVS/artwork. Avoid
+Factory reset or a whole-flash erase when retaining calibration and settings.
 
 ## Pairing fails, never asks for a passkey, or works on only one PC
 
@@ -106,7 +157,8 @@ virtual interfaces. Disk usage is for the disk selected in Connection.
 
 Use the editor to correct the error. IDs must be unique; names, labels, images
 and actions are strictly validated. The complete wire bundle is limited to
-12,288 bytes. Keep at least one profile/button. Remove unnecessary buttons or
+49,152 bytes. Artwork is validated and transferred separately. Keep at least one
+profile/button. Remove unnecessary buttons or
 custom image data to reduce the bundle. If a JSON file is damaged, move it out of
 `%LOCALAPPDATA%\NexusDeck\profiles`, keep a backup, and restart the companion.
 Rejected files are reported in the editor and log; they are not executed.
@@ -128,6 +180,10 @@ inside this project, then build again. Keep your source and user profiles.
 The firmware reserves two NimBLE storage slots; its authorization policy remains
 one PC. Setting the SDK store size to one can trigger an ESP-IDF 5.5.4
 `-Werror=array-bounds` diagnostic in NimBLE's NVS restore sorting code.
+
+If a reused universal-compiler build reports `XTENSA_GNU_CONFIG ... Unable to load
+DLL`, use the current build helper or pass `-UseUniversalCompiler`. It restores
+the compiler's library directory on PATH while retaining the ESP32-S3 toolchain.
 
 ## Logs, recovery and packaged app
 

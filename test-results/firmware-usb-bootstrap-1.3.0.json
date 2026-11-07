@@ -1,0 +1,44 @@
+{
+  "firmware": "1.3.0",
+  "purpose": "Initial OTA-enabled factory bootstrap before the GATT cache repair",
+  "target": "esp32s3",
+  "physical_flash_capacity_bytes": 16777216,
+  "flashed": true,
+  "hash_verified": true,
+  "image_count": 4,
+  "backup_bytes": 6684672,
+  "storage_regions_preserved": [
+    "nvs",
+    "phy_init",
+    "icon_store"
+  ],
+  "physical_boot_and_authenticated_status_read_verified": true,
+  "physical_display_touch_audit_performed": false,
+  "observed_at": "2026-11-07T07:42:55.243538+00:00",
+  "images": [
+    {
+      "offset": "0x0",
+      "file": "bootloader/bootloader.bin",
+      "bytes": 20896,
+      "sha256": "2299b783111ad0190c49f43d7a23b44ecbe8b2b91fd4745a879d7f32876c91e3"
+    },
+    {
+      "offset": "0x8000",
+      "file": "partition_table/partition-table.bin",
+      "bytes": 3072,
+      "sha256": "3bd4380f67be2ac2643ccd4b31076093d39e7ed2bb9636112b80ebe14e72d515"
+    },
+    {
+      "offset": "0x5a000",
+      "file": "ota_data_initial.bin",
+      "bytes": 8192,
+      "sha256": "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f"
+    },
+    {
+      "offset": "0x60000",
+      "file": "nexus_deck.bin",
+      "bytes": 1098464,
+      "sha256": "920a52ce74b6bbd318eabc7b2a92d40da4f6c9ffe34c1f8df6303f7c0bf9f048"
+    }
+  ]
+}

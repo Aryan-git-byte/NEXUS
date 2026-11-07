@@ -1,5 +1,6 @@
 #pragma once
 #include <atomic>
+#include "update/ota_manager.hpp"
 #include "app_model.hpp"
 #include "ble_protocol.hpp"
 #include "storage/storage.hpp"
@@ -9,7 +10,7 @@
 #include "freertos/task.h"
 
 namespace nexus {
-enum class Channel : uint8_t { Commands = 0, Telemetry = 1, Responses = 2, Profiles = 3, Status = 4 };
+enum class Channel : uint8_t { Commands = 0, Telemetry = 1, Responses = 2, Profiles = 3, Status = 4, Firmware = 5 };
 class BleManager {
 public:
     explicit BleManager(Storage& storage) : storage_(storage) {}
@@ -29,6 +30,8 @@ public:
     bool bonded() const { return has_identity_.load(); }
     bool advertising() const { return advertising_.load(); }
     bool host_synced() const { return host_synced_.load(); }
+    void ui_alive() { last_ui_alive_ = now_ms(); }
+    bool ota_supported() const { return OtaManager::supported(); }
     int radio_error() const { return radio_error_.load(); }
     uint32_t pairing_remaining() const;
 private:
@@ -62,6 +65,8 @@ private:
     bool authorize(const ble_gap_conn_desc& description);
     uint32_t next_sequence();
     Storage& storage_;
+    OtaManager ota_;
+    std::atomic<uint64_t> last_ui_alive_{0};
     QueueHandle_t incoming_ = nullptr, requests_ = nullptr;
     std::atomic<uint16_t> connection_{0xffff};
     std::atomic<bool> encrypted_{false}, ready_{false}, has_identity_{false};
@@ -74,6 +79,7 @@ private:
     BondIdentity identity_{};
     char session_[33]{};
     uint8_t own_address_type_ = 0;
+    bool service_change_announced_ = false;
     uint16_t command_handle_ = 0, status_handle_ = 0, message_id_ = 0;
     std::atomic<bool> command_subscribed_{false}, status_subscribed_{false};
     uint32_t bad_count_ = 0, last_telemetry_sequence_ = 0;

@@ -29,6 +29,16 @@ powershell -ExecutionPolicy Bypass -File tools\build_firmware.ps1 -Command flash
 ```
 
 You can pass `-IdfPath C:\your\esp-idf` and `-ToolsPath C:\your\tools`.
+For the universal Xtensa compiler used on this machine, the verified command is:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\build_firmware.ps1 -BuildDirectory build-direct -UseUniversalCompiler -DisableCompilerCache
+```
+
+The helper remembers the toolchain selected in an existing build directory and
+restores its DLL search path on later runs. Use a separate build directory when
+changing compilers.
+
 The helper stores compiler output in `test-results/firmware-build.log` and uses
 a component cache inside the repository. The normal build output is:
 
@@ -36,6 +46,7 @@ a component cache inside the repository. The normal build output is:
 firmware/build/nexus_deck.bin
 firmware/build/bootloader/bootloader.bin
 firmware/build/partition_table/partition-table.bin
+firmware/build/ota_data_initial.bin
 firmware/build/flash_args
 ```
 
@@ -46,6 +57,21 @@ the ILI9488 initialization.
 
 Do not change the parallel data mapping, COLMOD, or MADCTL to adapt a software
 layout. Optional hardware changes are isolated in `config.hpp`.
+
+### Wireless firmware updates
+
+Install 1.3.0 over USB once using the backup-preserving helper. It adds OTA
+metadata and two 4 MB update slots without moving calibration or artwork.
+`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y` is required; an old `sdkconfig` with
+rollback disabled stops configuration with an explicit error. Enable it in
+menuconfig or retain the project's default before rebuilding.
+
+Build the next firmware normally. In the Windows editor, click **Firmware**,
+choose the application `nexus_deck.bin`, and click **Upload over Bluetooth**.
+Use the same build directory you compiled; `build-direct` is also supported.
+The app validates the file, transfers it to the inactive slot and waits for a
+verified reboot. Keep the deck powered. See [OTA.md](OTA.md) for cancellation,
+rollback and USB recovery. A full partitioned/merged image is not an OTA file.
 
 ## Windows companion from source
 

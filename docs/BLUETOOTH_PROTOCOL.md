@@ -12,6 +12,7 @@ is in the scan response. Advertising intervals are 100–150 ms.
 | Action responses | `b7c20003-7b9b-4e7d-9e10-a4f68c120001` | PC writes with response |
 | Profiles | `b7c20004-7b9b-4e7d-9e10-a4f68c120001` | PC writes with response |
 | Status | `b7c20005-7b9b-4e7d-9e10-a4f68c120001` | Encrypted read, PC writes, device notifications |
+| Firmware | `b7c20006-7b9b-4e7d-9e10-a4f68c120001` | Authenticated/encrypted PC writes with response |
 
 All characteristic access requires encryption, authentication, an authorized
 bond identity, and a 16-byte encryption key. Notifications are sent only after
@@ -53,13 +54,46 @@ telemetry at 2,048 and response/handshake messages at 1,024 bytes. One ordered
 assembly is maintained per characteristic. Exact retries of already received
 fragments are tolerated; conflicting, truncated, interleaved and out-of-order
 fragments are rejected. An incomplete assembly expires after 10 seconds without
-a fragment. A bad CRC never reaches JSON parsing.
+a fragment. A bad CRC never reaches JSON parsing. Firmware messages use a separate
+8,192-byte assembly cap and the same framing; decoded firmware chunks are at most
+4,096 bytes.
 
 Message IDs identify fragment assemblies. Nonzero uint32 **sequence numbers**
 identify application requests/replies. They are independent. Each connection
 also receives a fresh, lowercase 32-hex-character application session token.
 It prevents stale application packets from being reused after reconnect; the
 bond and authenticated BLE encryption provide authorization.
+
+## Firmware update messages
+
+Firmware 1.3.0 adds descriptor fields `ota`, `ota_confirmed`, `slot` and
+`elf_sha256`. The companion requires OTA support and a confirmed current boot
+before accepting an update. All writes on Firmware use the existing fragment
+header, session, CRC and a nonzero sequence, plus a lowercase 32-hex `transfer`
+identifier. Unknown fields and invalid numbers are rejected.
+
+| Type | Additional fields | Behavior |
+|---|---|---|
+| `ota_begin` | `size`, `sha256`, `version` | Validate manifest; open an inactive slot |
+| `ota_chunk` | `offset`, `data` | Sequential offset; base64 decoded to 1–4,096 bytes |
+| `ota_end` | None | Require exact byte count, hash and valid image; select boot and restart |
+| `ota_abort` | None | Abort an uncommitted transfer; current image remains selected |
+
+Replies are fragmented Status notifications with `type:ota_ack`, matching
+`sequence` and `session`, `status`, `message`, `offset`, `max_chunk`, `slot` and
+`restarting`. `offset` is the accepted byte count. Exact retries of the previous
+chunk (offset, length and CRC) receive the existing acknowledgement without
+another flash write. Conflicting/out-of-order chunks are rejected. Repeated
+begin/end messages for the same committed transfer are idempotent.
+
+The manifest includes a 64-hex SHA-256 of the complete application `.bin` and a
+version of at most 31 safe ASCII characters. Only ESP32-S3 images with project
+`nexus_deck` and a matching application version can pass the first-block check.
+ESP-IDF verifies the complete image before boot selection. A new connection
+aborts an unfinished transfer; there is no resume across sessions. An idle
+transfer expires after 120 seconds. Cancellation is unavailable after commit.
+The companion verifies a fresh connection's slot, version, ELF hash and
+`ota_confirmed:true` before reporting completion. See [OTA.md](OTA.md).
 
 ## Handshake and synchronization
 
@@ -98,6 +132,12 @@ LVGL image tinted to the common icon color.
 ### Color and animated artwork
 
 The encrypted descriptor includes `icon_assets:true` and `max_message:49152`.
+The GATT Service Changed indication announces the full attribute range after
+firmware boot so bonded Windows centrals discard an older service table. The
+central retries discovery when WinRT reports a service change. An earlier 1.3.0
+bootstrap with a stale five-characteristic Windows cache can be recovered only
+after its sixth control's actual write-only ATT declaration, UUID and adjacent
+value handle are read and validated; authenticated writes remain enforced.
 The central uploads each unique image through Profiles before `profile_sync`:
 
 ```json

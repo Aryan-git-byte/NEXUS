@@ -19,6 +19,16 @@ from pathlib import Path
 FLASH_SIZE = 16 * 1024 * 1024
 TABLE_OFFSET = 0x8000
 SECTOR = 4096
+OTA_DATA_OFFSET = 0x5A000
+OTA_LAYOUT = {
+    "otadata": (1, 0, OTA_DATA_OFFSET, 0x2000),
+    "factory": (0, 0, 0x60000, 0x400000),
+    "ota_0": (0, 0x10, 0x660000, 0x400000),
+    "ota_1": (0, 0x11, 0xA60000, 0x400000),
+    "nvs": (1, 2, 0x9000, 0x50000),
+    "phy_init": (1, 1, 0x59000, 0x1000),
+    "icon_store": (1, 2, 0x460000, 0x200000),
+}
 
 
 @dataclass(frozen=True)
@@ -92,11 +102,25 @@ def load_build(directory: Path) -> tuple[dict, list[Partition], dict[int, Path]]
         if offset < 0 or offset % SECTOR or not 0 < path.stat().st_size <= FLASH_SIZE - offset:
             raise ValueError("Invalid flash image bounds")
         files[offset] = path
-    if set(files) != {0, TABLE_OFFSET, 0x60000} or files[0].stat().st_size > TABLE_OFFSET:
+    expected = {0, TABLE_OFFSET, 0x60000}
+    if OTA_DATA_OFFSET in files:
+        expected.add(OTA_DATA_OFFSET)
+    if set(files) != expected or files[0].stat().st_size > TABLE_OFFSET:
         raise ValueError("Unexpected bootloader, partition table, or application offsets")
     if files[0x60000].read_bytes()[:1] != b"\xe9":
         raise ValueError("Application is not an ESP firmware image")
     parts = parse_table(files[TABLE_OFFSET].read_bytes())
+    ota_parts = [p for p in parts if p.name in ("otadata", "ota_0", "ota_1")]
+    if ota_parts or OTA_DATA_OFFSET in files:
+        if len(parts) != len(OTA_LAYOUT) or len(ota_parts) != 3 or OTA_DATA_OFFSET not in files:
+            raise ValueError("Incomplete OTA partition layout or initial boot metadata")
+        for name, bounds in OTA_LAYOUT.items():
+            partition = next((p for p in parts if p.name == name), None)
+            if partition is None or (partition.type, partition.subtype, partition.offset, partition.size) != bounds or partition.flags:
+                raise ValueError(f"Unexpected OTA partition bounds: {name}")
+        # USB recovery deliberately selects the newly flashed factory application.
+        if files[OTA_DATA_OFFSET].read_bytes() != b"\xff" * 0x2000:
+            raise ValueError("Initial OTA metadata must be erased to boot the factory image")
     factory = next((p for p in parts if p.type == 0 and p.offset == 0x60000), None)
     if factory is None or files[0x60000].stat().st_size > factory.size:
         raise ValueError("Application does not fit its partition")
@@ -109,9 +133,11 @@ def prepare(backup: bytes, parts: list[Partition], files: dict[int, Path], outpu
     old_parts = parse_table(backup[TABLE_OFFSET:TABLE_OFFSET + SECTOR])
     images = dict(files)
     preserved = []
-    for name in ("nvs", "phy_init"):
+    for name in ("nvs", "phy_init", "icon_store"):
         new = next((p for p in parts if p.name == name), None)
         old = next((p for p in old_parts if p.name == name), None)
+        if name == "icon_store" and new is None:
+            continue
         if new is None or (name == "nvs" and (new.type, new.subtype) != (1, 2)):
             raise ValueError("Expected NEXUS data partition is missing")
         image = migrated_partition(backup, old, new)
@@ -135,18 +161,51 @@ def prepare(backup: bytes, parts: list[Partition], files: dict[int, Path], outpu
     return plan
 
 
-def run_esptool(port: str, arguments: list[str], output: Path, name: str, after: str = "no_reset") -> str:
+def run_esptool(port: str, arguments: list[str], output: Path, name: str,
+                after: str = "no_reset", quiet: bool = False) -> str:
     command = [sys.executable, "-m", "esptool", "--chip", "esp32s3", "--port", port,
                "--baud", "460800", "--after", after, *arguments]
-    result = subprocess.run(command, capture_output=True, text=True, errors="replace", timeout=300)
-    text = result.stdout + result.stderr
-    (output / f"{name}.log").write_text(text, encoding="utf-8")
-    for line in text.splitlines():
-        if "\b" not in line and not line.startswith("Writing at "):
-            print(line)
-    if result.returncode:
-        raise RuntimeError(f"esptool {name} failed; see {output / (name + '.log')}")
-    return text
+    attempts = 3 if arguments[0] in ("read_flash", "flash_id") else 1
+    for attempt in range(attempts):
+        result = subprocess.run(command, capture_output=True, text=True, errors="replace", timeout=900)
+        text = result.stdout + result.stderr
+        log_name = name if attempt == 0 else f"{name}-retry-{attempt}"
+        (output / f"{log_name}.log").write_text(text, encoding="utf-8")
+        if not quiet:
+            for line in text.splitlines():
+                if "\b" not in line and not line.startswith("Writing at "):
+                    print(line, flush=True)
+        if not result.returncode:
+            return text
+        if attempt + 1 < attempts:
+            print(f"Verified flash read failed; retrying {name} ({attempt + 2}/{attempts}). No flash writes made.", flush=True)
+    raise RuntimeError(f"esptool {name} failed; see {output / (log_name + '.log')}")
+
+
+def backup_flash(port: str, length: int, output: Path) -> bytes:
+    # Short reads avoid sustained USB Serial/JTAG overruns on the shared LCD pins.
+    # Each esptool read verifies its own transfer before it joins the backup.
+    data = bytearray()
+    for offset in range(0, length, 512 * 1024):
+        size = min(512 * 1024, length - offset)
+        path = output / f"backup-{offset:08x}.bin"
+        run_esptool(port, ["read_flash", hex(offset), hex(size), str(path)], output,
+                    f"backup-{offset:08x}", quiet=True)
+        block = path.read_bytes()
+        if len(block) != size:
+            raise ValueError("Backup block is truncated; no flash writes were made")
+        data.extend(block)
+        print(f"Flash backup verified: {len(data):,} / {length:,} bytes", flush=True)
+    backup = bytes(data)
+    (output / "before-flash.bin").write_bytes(backup)
+    return backup
+
+
+def detected_flash_size(log: str) -> int:
+    found = re.search(r"Detected flash size:\s*(\d+)\s*(MB|KB)\b", log, re.IGNORECASE)
+    if not found:
+        raise ValueError("Could not verify the physical flash capacity; no flash writes were made")
+    return int(found[1]) * (1024 * 1024 if found[2].upper() == "MB" else 1024)
 
 
 def main() -> int:
@@ -169,13 +228,15 @@ def main() -> int:
         if args.backup_file:
             backup = Path(args.backup_file).read_bytes()
         else:
+            if OTA_DATA_OFFSET in files:
+                identity = run_esptool(args.port, ["flash_id"], output, "flash-identity")
+                if detected_flash_size(identity) < FLASH_SIZE:
+                    raise ValueError("This OTA partition layout requires a detected 16 MB flash device; no flash writes were made")
             table_path = output / "table-before.bin"
             run_esptool(args.port, ["read_flash", hex(TABLE_OFFSET), hex(SECTOR), str(table_path)], output, "read-table")
             old = parse_table(table_path.read_bytes())
             length = max(0x60000, max((p.end for p in old), default=0))
-            backup_path = output / "before-flash.bin"
-            run_esptool(args.port, ["read_flash", "0", hex(length), str(backup_path)], output, "backup")
-            backup = backup_path.read_bytes()
+            backup = backup_flash(args.port, length, output)
             if len(backup) != length or backup[TABLE_OFFSET:TABLE_OFFSET + SECTOR] != table_path.read_bytes():
                 raise ValueError("Backup verification failed; no flash writes were made")
         plan = prepare(backup, parts, files, output)

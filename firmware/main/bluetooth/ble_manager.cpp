@@ -29,8 +29,9 @@ const ble_uuid128_t characteristic_uuids[] = {
     BLE_UUID128_INIT(0x01,0x00,0x12,0x8c,0xf6,0xa4,0x10,0x9e,0x7d,0x4e,0x9b,0x7b,0x02,0x00,0xc2,0xb7),
     BLE_UUID128_INIT(0x01,0x00,0x12,0x8c,0xf6,0xa4,0x10,0x9e,0x7d,0x4e,0x9b,0x7b,0x03,0x00,0xc2,0xb7),
     BLE_UUID128_INIT(0x01,0x00,0x12,0x8c,0xf6,0xa4,0x10,0x9e,0x7d,0x4e,0x9b,0x7b,0x04,0x00,0xc2,0xb7),
-    BLE_UUID128_INIT(0x01,0x00,0x12,0x8c,0xf6,0xa4,0x10,0x9e,0x7d,0x4e,0x9b,0x7b,0x05,0x00,0xc2,0xb7)};
-ble_gatt_chr_def characteristics[6]{};
+    BLE_UUID128_INIT(0x01,0x00,0x12,0x8c,0xf6,0xa4,0x10,0x9e,0x7d,0x4e,0x9b,0x7b,0x05,0x00,0xc2,0xb7),
+    BLE_UUID128_INIT(0x01,0x00,0x12,0x8c,0xf6,0xa4,0x10,0x9e,0x7d,0x4e,0x9b,0x7b,0x06,0x00,0xc2,0xb7)};
+ble_gatt_chr_def characteristics[7]{};
 ble_gatt_svc_def services[2]{};
 bool type_is(const cJSON* root, const char* text) {
     const auto* type = cJSON_GetObjectItemCaseSensitive(root, "type");
@@ -57,7 +58,7 @@ esp_err_t BleManager::initialize() {
     ble_hs_cfg.sm_their_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
     ble_svc_gap_init(); ble_svc_gatt_init();
     ble_store_config_init();
-    for (size_t i = 0; i < 5; ++i) {
+    for (size_t i = 0; i < 6; ++i) {
         auto& characteristic = characteristics[i];
         characteristic.uuid = &characteristic_uuids[i].u;
         characteristic.access_cb = access;
@@ -90,10 +91,13 @@ int BleManager::access(uint16_t connection, uint16_t, ble_gatt_access_ctxt* cont
     const auto channel = static_cast<Channel>(reinterpret_cast<uintptr_t>(arg));
     if (connection != self.connection_ || !self.encrypted_) return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
     if (context->op == BLE_GATT_ACCESS_OP_READ_CHR) {
-        char status[256];
+        char status[512], elf[65]; OtaManager::elf_digest(elf,sizeof(elf));
         const int count = std::snprintf(status, sizeof(status),
-            "{\"name\":\"NEXUS DECK\",\"firmware\":\"%s\",\"protocol\":1,\"icon_assets\":true,\"local_apps\":true,\"timer_alerts\":true,\"max_message\":49152,\"ready\":%s,\"mtu\":%u}",
-            config::kVersion, self.ready_ ? "true" : "false", ble_att_mtu(connection));
+            "{\"name\":\"NEXUS DECK\",\"firmware\":\"%s\",\"protocol\":1,\"icon_assets\":true,\"local_apps\":true,\"timer_alerts\":true,\"max_message\":49152,\"ready\":%s,\"mtu\":%u,\"ota\":%s,\"ota_confirmed\":%s,\"slot\":\"%s\",\"elf_sha256\":\"%s\"}",
+            config::kVersion, self.ready_ ? "true" : "false", ble_att_mtu(connection),
+            OtaManager::supported() ? "true" : "false", OtaManager::boot_confirmed() ? "true" : "false",
+            OtaManager::running_slot(),elf);
+        if (count < 0 || static_cast<size_t>(count) >= sizeof(status)) return BLE_ATT_ERR_UNLIKELY;
         return os_mbuf_append(context->om, status, count) == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
     }
     if (context->op != BLE_GATT_ACCESS_OP_WRITE_CHR || channel == Channel::Commands) return BLE_ATT_ERR_WRITE_NOT_PERMITTED;
@@ -151,7 +155,16 @@ int BleManager::gap(ble_gap_event* event, void*) {
                         && self.authorize(description);
         self.encrypted_ = accepted;
         if (!accepted) ble_gap_terminate(event->enc_change.conn_handle, BLE_ERR_AUTH_FAIL);
-        else { ui.kind = UiEventKind::Secure; ui.value = 1; post_ui(ui); }
+        else {
+            ui.kind = UiEventKind::Secure; ui.value = 1; post_ui(ui);
+            // A bonded Windows central otherwise retains the old attribute
+            // table across firmware updates, even with UNCACHED discovery.
+            // Announce it once per boot, after the owner's encryption resumes.
+            if (!self.service_change_announced_) {
+                self.service_change_announced_ = true;
+                ble_svc_gatt_changed(1,0xffff);
+            }
+        }
         break;
     }
     case BLE_GAP_EVENT_PASSKEY_ACTION: {
@@ -209,7 +222,12 @@ void BleManager::sync() {
     if (!error) error = ble_hs_id_infer_auto(0,&self.own_address_type_);
     self.radio_error_ = error;
     self.host_synced_ = error == 0;
-    if (!error) self.advertise();
+    if (!error) {
+        self.service_change_announced_ = false;
+        // NimBLE persists this indication for disconnected subscribed bonds.
+        ble_svc_gatt_changed(1,0xffff);
+        self.advertise();
+    }
 }
 void BleManager::reset(int reason) {
     auto& self = *instance_;
@@ -310,6 +328,7 @@ void BleManager::invalid(const char* reason) {
     std::snprintf(event.text, sizeof(event.text), "%s", reason); post_ui(event);
 }
 void BleManager::reset_session() {
+    ota_.abort("Firmware update disconnected; the current image is retained");
     session_[0] = 0; ready_ = false; last_telemetry_sequence_ = 0;
     last_profile_sequence_ = last_profile_crc_ = 0;
     for (auto& p : pending_) if (p.used) {
@@ -341,7 +360,10 @@ void BleManager::incoming(Channel channel, uint8_t* data, size_t size) {
         ack("hello_ack",seq,true,"Encrypted session established"); return;
     }
     if (!ready_ || !valid_session(root.get(), session_)) { invalid("Rejected stale session"); return; }
-    if (channel == Channel::Telemetry && type_is(root.get(),"telemetry")) {
+    if (channel == Channel::Firmware) {
+        char response[512]; ota_.handle(root.get(),seq,session_,response,sizeof(response));
+        last_seen_ = now_ms(); notify(Channel::Status,response);
+    } else if (channel == Channel::Telemetry && type_is(root.get(),"telemetry")) {
         Telemetry telemetry;
         if (seq <= last_telemetry_sequence_ || !parse_telemetry(root.get(), telemetry)) { invalid("Rejected telemetry"); return; }
         last_telemetry_sequence_ = seq; last_seen_ = now_ms();
@@ -474,14 +496,16 @@ void BleManager::worker() {
     auto telemetry_buffer = std::unique_ptr<uint8_t[]>(new(std::nothrow) uint8_t[2049]);
     auto response_buffer = std::unique_ptr<uint8_t[]>(new(std::nothrow) uint8_t[1025]);
     auto status_buffer = std::unique_ptr<uint8_t[]>(new(std::nothrow) uint8_t[1025]);
-    if (!profile_buffer || !telemetry_buffer || !response_buffer || !status_buffer) {
+    auto firmware_buffer = std::unique_ptr<uint8_t[]>(new(std::nothrow) uint8_t[OtaManager::kMessageBytes + 1]);
+    if (!profile_buffer || !telemetry_buffer || !response_buffer || !status_buffer || !firmware_buffer) {
         UiEvent event{}; event.kind = UiEventKind::Notice;
         std::snprintf(event.text,sizeof(event.text),"BLE buffers unavailable. Restart the device."); post_ui(event);
         ready_ = false; vTaskDelete(nullptr); return;
     }
     wire::Reassembler profiles(profile_buffer.get(), config::kMaxMessage), telemetry(telemetry_buffer.get(), 2048);
     wire::Reassembler responses(response_buffer.get(), 1024), status(status_buffer.get(), 1024);
-    wire::Reassembler* assemblers[] = {nullptr,&telemetry,&responses,&profiles,&status};
+    wire::Reassembler firmware(firmware_buffer.get(),OtaManager::kMessageBytes);
+    wire::Reassembler* assemblers[] = {nullptr,&telemetry,&responses,&profiles,&status,&firmware};
     uint32_t generation = generation_;
     while (true) {
         if (generation != generation_) {
@@ -503,6 +527,7 @@ void BleManager::worker() {
         Request r;
         if (xQueueReceive(requests_, &r, 0) == pdTRUE) request(r);
         uint64_t now = now_ms();
+        ota_.poll(host_synced_ && now - last_ui_alive_.load() < 1000);
         for (auto& pending : pending_) if (pending.used && now - pending.sent_ms >= 1600) {
             if (!ready_ || pending.attempts >= 3) {
                 UiEvent event{}; event.kind = UiEventKind::Response; event.sequence = pending.sequence;

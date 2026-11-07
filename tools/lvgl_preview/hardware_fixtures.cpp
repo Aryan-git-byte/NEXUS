@@ -23,6 +23,8 @@ int xQueueReceive(QueueHandle_t,void*,unsigned) { return pdFALSE; }
 void vTaskDelay(unsigned milliseconds) { std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds)); }
 
 namespace nexus {
+OtaManager::~OtaManager() {}
+bool OtaManager::supported() { return true; }
 esp_err_t LcdDriver::attach_lvgl(Orientation orientation) {
     orientation_ = orientation;
     buffer_ = std::calloc(480 * config::kDrawLines,2);

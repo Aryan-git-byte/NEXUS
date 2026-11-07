@@ -6,7 +6,7 @@ import pytest
 from companion.actions import ActionEngine, ActionError, WindowsInput
 from companion.settings import Settings
 
-
+# testing the navigation
 def test_navigation_and_windows_keys_include_extended_flags():
     keyboard = WindowsInput()
     keyboard._send = Mock()

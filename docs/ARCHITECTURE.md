@@ -103,3 +103,23 @@ arguments, text snippets, URLs, or a new action definition.
 
 No Wi-Fi, cloud service, Bluetooth Classic, external display library, or PC
 process is required to render and operate the device UI.
+
+## Firmware updates
+
+`update/ota_manager` owns an incremental ESP-IDF OTA writer on the BLE worker.
+Only the authenticated firmware characteristic can submit its control messages.
+An 8 KB assembly and fixed 4 KB decode buffer bound per-chunk memory use.
+Sequential flash writes erase only the inactive application slot. SHA-256,
+the app descriptor and IDF image validation must pass before boot selection.
+Progress reaches LVGL through the existing UI queue; display/touch code is unchanged.
+
+The companion validates a selected immutable image, sends acknowledged chunks
+and serializes profile sync against the transfer. It releases that lock before
+reconnect, then checks the new slot, version, ELF hash and confirmed boot. The
+Qt Firmware dialog receives queued progress/results from Controller. Monitoring
+and tray services continue in the background.
+
+The rollback-enabled bootloader retains the previous image. The firmware confirms
+a pending boot only after 20 continuous seconds of live UI heartbeat and NimBLE
+host health. An unhealthy pending image restarts after 45 seconds. Incomplete,
+cancelled or disconnected transfers never alter the selected boot partition.

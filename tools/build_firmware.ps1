@@ -11,6 +11,13 @@ param(
 $ErrorActionPreference = 'Stop'
 if ($Command -eq 'flash' -and -not $Port) { throw 'Pass -Port with the ESP32-S3 download-mode COM port.' }
 $nexusRoot = Split-Path -Parent $PSScriptRoot
+$nexusBuildPath = Join-Path $nexusRoot "firmware\$BuildDirectory"
+$nexusCmakeCache = Join-Path $nexusBuildPath 'CMakeCache.txt'
+if (-not $UseUniversalCompiler -and (Test-Path -LiteralPath $nexusCmakeCache)) {
+    # CMake remembers the selected toolchain. Reuse its required DLL search
+    # path on later invocations even when the original switch was omitted.
+    $UseUniversalCompiler = [bool](Select-String -LiteralPath $nexusCmakeCache -Quiet -Pattern '^NEXUS_UNIVERSAL_XTENSA:[^=]+=(ON|YES|TRUE|1)$')
+}
 if (-not $IdfPath) {
     $nexusIdf = Get-ChildItem -LiteralPath 'C:\Espressif\frameworks' -Directory -ErrorAction SilentlyContinue |
         Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'export.ps1') } |
@@ -34,7 +41,6 @@ if ($UseUniversalCompiler) {
     $env:PATH = "$nexusCompilerLibrary;$env:PATH"
 }
 $nexusArgs = @('-C', (Join-Path $nexusRoot 'firmware'), '-D', 'IDF_TARGET=esp32s3')
-$nexusBuildPath = Join-Path $nexusRoot "firmware\$BuildDirectory"
 $nexusArgs += @('-B', $nexusBuildPath)
 if ($UseUniversalCompiler) {
     $nexusArgs += @('-D', 'NEXUS_UNIVERSAL_XTENSA=ON')
