@@ -1,0 +1,106 @@
+{
+  "source_revision": "375cd60df0e4f56244d88ba633c02b81cb331767",
+  "processing": "Original RGB pixels retained; PNG metadata replaced with provenance. No UI values were retouched.",
+  "screens": [
+    {
+      "file": "assets/readme/screens/home.png",
+      "source_tool": "tools/render_firmware.py",
+      "source_capture": "home-landscape.png",
+      "source_sha256": "e731652c93b9f3eb4af51c2ced5828de7d5757cede5a88c8f5bc380c0284df3c",
+      "published_sha256": "d9876c4bfab6689d8ea3c687f2426e7496074e55f7b1f9f4d5260ccda5fb9c8c",
+      "width": 480,
+      "height": 320,
+      "description": "Actual LVGL firmware render; synthetic PC/clock fixtures; no physical hardware accessed."
+    },
+    {
+      "file": "assets/readme/screens/development.png",
+      "source_tool": "tools/render_firmware.py",
+      "source_capture": "development-landscape.png",
+      "source_sha256": "4c36541ffbbac990fb2d1c865eb53407d6e938e8598b29dc020202f5367772b3",
+      "published_sha256": "f84eb9cbce0744e312cebb8996e6b9787ee749caf46177511aa34033e13e2526",
+      "width": 480,
+      "height": 320,
+      "description": "Actual LVGL firmware render; synthetic PC/clock fixtures; no physical hardware accessed."
+    },
+    {
+      "file": "assets/readme/screens/clock.png",
+      "source_tool": "tools/render_firmware.py",
+      "source_capture": "clock-landscape.png",
+      "source_sha256": "c11ccfee1eafa7f935033ea718d404cb4552d78921d2f7e611bc52e57b1d1a22",
+      "published_sha256": "e34d45bccb3203bb889926b4867314ffd73cfe4c1ebd435338110f453fca5b25",
+      "width": 480,
+      "height": 320,
+      "description": "Actual LVGL firmware render; synthetic PC/clock fixtures; no physical hardware accessed."
+    },
+    {
+      "file": "assets/readme/screens/calculator.png",
+      "source_tool": "tools/render_firmware.py",
+      "source_capture": "calculator-landscape.png",
+      "source_sha256": "4dafea313ee0c32c568027f7dd14619aa03082441e29c78a7cd1742dbbf7a000",
+      "published_sha256": "1a0f26dae38df40131182a918f774fd48d13e018baf4d4e84ce01eef3d497e59",
+      "width": 480,
+      "height": 320,
+      "description": "Actual LVGL firmware render; synthetic PC/clock fixtures; no physical hardware accessed."
+    },
+    {
+      "file": "assets/readme/screens/2048.png",
+      "source_tool": "tools/render_firmware.py",
+      "source_capture": "2048-landscape.png",
+      "source_sha256": "274ba604940cb56a9b136d7498771d88e381e99aded83b63da651f44753c7110",
+      "published_sha256": "db8394e78b6dcaaf7c8b15bdc933290e168828c6bd28e4d268818b5cc767657d",
+      "width": 480,
+      "height": 320,
+      "description": "Actual LVGL firmware render; synthetic PC/clock fixtures; no physical hardware accessed."
+    },
+    {
+      "file": "assets/readme/screens/snake.png",
+      "source_tool": "tools/render_firmware.py",
+      "source_capture": "snake-landscape.png",
+      "source_sha256": "8b56b69690e6eb9d7c722abf1f56861421d0e112d543352ce5d5b4caa454182d",
+      "published_sha256": "d635ff3bb16d9c7cef1219d4e217747214594c69c01ab88a4dc4d6c76afb51cf",
+      "width": 480,
+      "height": 320,
+      "description": "Actual LVGL firmware render; synthetic PC/clock fixtures; no physical hardware accessed."
+    },
+    {
+      "file": "assets/readme/screens/timer.png",
+      "source_tool": "tools/render_firmware.py",
+      "source_capture": "timer-landscape.png",
+      "source_sha256": "6a57f115c45d7907f91bceca896b8eef48dd0d15ff54034890bddbe75d7d8081",
+      "published_sha256": "8913661457922fc9880c20bb506d4198d6a1e6bb954d41170f974b11df69c624",
+      "width": 480,
+      "height": 320,
+      "description": "Actual LVGL firmware render; synthetic PC/clock fixtures; no physical hardware accessed."
+    },
+    {
+      "file": "assets/readme/screens/focus.png",
+      "source_tool": "tools/render_firmware.py",
+      "source_capture": "focus-landscape.png",
+      "source_sha256": "5eddd525af6e43265019bf76c763bc616963b71c9c5ce63cbf2de252771c6ada",
+      "published_sha256": "b2e6245e6c9553c8a4c9e5ee7035f9d4b65a7eaeb0a19acbb4c894fbdb329226",
+      "width": 480,
+      "height": 320,
+      "description": "Actual LVGL firmware render; synthetic PC/clock fixtures; no physical hardware accessed."
+    },
+    {
+      "file": "assets/readme/screens/pet.png",
+      "source_tool": "tools/render_firmware.py",
+      "source_capture": "pet-pat-landscape.png",
+      "source_sha256": "b655643e1e646c46e25cbd9278c35d98ed39a47ca9c2dc7973c363b9b8ee2742",
+      "published_sha256": "57eb81479cb689debefcc8a10f60af3c9fc0950bf17cea1be7df081eb0ba6aa2",
+      "width": 480,
+      "height": 320,
+      "description": "Actual LVGL firmware render; synthetic PC/clock fixtures; no physical hardware accessed."
+    },
+    {
+      "file": "assets/readme/screens/companion.png",
+      "source_tool": "tools/render_editor.py",
+      "source_capture": "development-landscape.png",
+      "source_sha256": "656daf60398314058b3bc0c87f2628bb759539d9afe73cd0e316a8671ad00a94",
+      "published_sha256": "53bc5322de474f607a6e6867dde34cc23c56e51ab03a8e7b6b0290f298b446e9",
+      "width": 1240,
+      "height": 800,
+      "description": "Actual Qt editor render; local profiles and real PC metrics; no deck connected."
+    }
+  ]
+}

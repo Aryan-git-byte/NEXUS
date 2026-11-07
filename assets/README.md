@@ -13,3 +13,15 @@ See `fonts/README.md` and `fonts/OFL.txt` for the Montserrat font attribution
 and redistribution terms. Imported user artwork stays in the user's local
 configuration and is not licensed by this project. ESP-IDF, LVGL and the
 Windows dependencies retain their own licenses.
+
+## Logo and documentation images
+
+`branding/logo.svg` is the scalable version of the existing six-color Windows
+companion mark; `branding/logo.png` has a transparent background. README
+banners and galleries live in `readme/`, alongside their source captures and
+provenance manifest. They use actual LVGL/Qt renders, with explicit firmware
+test fixtures, and do not depict physical hardware measurements.
+
+`tools/generate_readme_assets.py` rebuilds those compositions with Pillow.
+See [image provenance and regeneration](readme/README.md) for the source tools,
+fonts, and capture-refresh commands.

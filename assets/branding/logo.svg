@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">NEXUS DECK</title>
+  <desc id="desc">Six colorful shortcut tiles in a rounded white square.</desc>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="#FFFFFF" stroke="#CBD2E0" stroke-width="5"/>
+  <rect x="48" y="72" width="40" height="40" rx="12" fill="#087AD8"/>
+  <rect x="108" y="72" width="40" height="40" rx="12" fill="#E34C88"/>
+  <rect x="168" y="72" width="40" height="40" rx="12" fill="#24A26E"/>
+  <rect x="48" y="136" width="40" height="40" rx="12" fill="#ED8A3A"/>
+  <rect x="108" y="136" width="40" height="40" rx="12" fill="#8860DD"/>
+  <rect x="168" y="136" width="40" height="40" rx="12" fill="#2C99D4"/>
+</svg>
